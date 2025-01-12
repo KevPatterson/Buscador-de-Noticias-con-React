@@ -49,16 +49,14 @@ Sigue estos pasos para clonar y ejecutar el proyecto en tu entorno local:
 ## 📷 Capturas de Pantalla
 
 ### 🏠 Página de Inicio
-![Página de Inicio](https://via.placeholder.com/800x400?text=Captura+de+Inicio)
+![Página de Inicio](https://github.com/KevPatterson/Buscador-de-Noticias-con-React/blob/main/src/assets/Feed.png)
+
+### 📄 Paginación
+![Paginación](https://github.com/KevPatterson/Buscador-de-Noticias-con-React/blob/main/src/assets/Feed%202.png)
 
 ### 🔍 Selección de Categoría
-![Selección de Categoría](https://via.placeholder.com/800x400?text=Captura+de+Selección+de+Categoría)
+![Selección de Categoría](https://github.com/KevPatterson/Buscador-de-Noticias-con-React/blob/main/src/assets/Categor%C3%ADas.png)
 
-### 📰 Listado de Noticias
-![Listado de Noticias](https://via.placeholder.com/800x400?text=Captura+de+Listado+de+Noticias)
-
-### ⏳ Spinner de Carga
-![Spinner de Carga](https://via.placeholder.com/800x400?text=Captura+de+Spinner+de+Carga)
 
 ## 💡 Uso
 
@@ -80,6 +78,8 @@ const CATEGORIAS = [
 ];
 ```
 
+Nota: Las categorías deben corresponderse con la API que estés utilizando (en este caso News API), de lo contrario no funcionará.
+
 ### Estilización
 
 Puedes ajustar el estilo del spinner o cualquier otro componente modificando los archivos CSS correspondientes en la carpeta `src/styles`.
@@ -93,14 +93,3 @@ Las contribuciones son bienvenidas. Por favor, sigue los siguientes pasos:
 3. Realiza tus cambios y haz commit (`git commit -m 'Añadir nueva función'`).
 4. Envía tus cambios al repositorio remoto (`git push origin nombre-de-la-rama`).
 5. Abre un Pull Request.
-
-## 📜 Licencia
-
-Este proyecto está licenciado bajo la [MIT License](LICENSE).
-
-## 📬 Contacto
-
-Para más información o preguntas, puedes contactarme en [tu-email@example.com].
-```
-
-Este `README.md` ahora incluye una sección de capturas de pantalla con enlaces de ejemplo y utiliza emojis para mejorar la presentación. Recuerda reemplazar los enlaces de las capturas con imágenes reales de tu aplicación.
