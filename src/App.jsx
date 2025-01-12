@@ -3,6 +3,7 @@ import Grid from '@mui/material/Grid';
 import Formulario from './components/Formulario.jsx'
 import { NoticiasProvider } from './context/NoticiasProvider.jsx';
 import ListadoNoticias from './components/ListadoNoticias.jsx';
+import './styles.css';
 
 function App() {
 
