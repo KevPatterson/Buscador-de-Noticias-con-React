@@ -24,6 +24,32 @@ export const DOMINIOS_PREFERIDOS = [
   "infobae.com",
 ];
 
+export const NOMBRES_FUENTES = {
+  'cubadebate.cu': 'Cubadebate',
+  'granma.cu': 'Granma',
+  'juventudrebelde.cu': 'Juventud Rebelde',
+  'cubasi.cu': 'CubaSi',
+  'acn.cu': 'ACN',
+  'tribuna.cu': 'Tribuna de La Habana',
+  'radioreloj.cu': 'Radio Reloj',
+  'prensalatina.cu': 'Prensa Latina',
+  'jit.cu': 'JIT Deporte',
+  '5septiembre.cu': '5 de Septiembre',
+  'giron.cu': 'Giron',
+  'escambray.cu': 'Escambray',
+  'radio26.icrt.cu': 'Radio 26',
+  'radiobayamo.icrt.cu': 'Radio Bayamo (CMKX)',
+  'cubagob.cu': 'Portal del Gobierno de Cuba',
+  'minrex.gob.cu': 'MINREX',
+  'bc.gob.cu': 'Banco Central de Cuba',
+  'telesurtv.net': 'teleSUR',
+  'noticiaslatam.lat': 'Sputnik Mundo',
+  'actualidad.rt.com': 'RT en Espanol',
+  'tvbrics.com': 'TV BRICS',
+  'espanol.cgtn.com': 'CGTN Espanol',
+  'infobae.com': 'Infobae',
+};
+
 export const GRUPOS_DOMINIOS = DOMINIOS_PREFERIDOS.reduce((grupos, dominio, i) => {
   const grupoIndex = Math.floor(i / 5);
   if (!grupos[grupoIndex]) grupos[grupoIndex] = [];

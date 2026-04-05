@@ -2,6 +2,7 @@ import { Container, Typography } from '@mui/material';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import Formulario from './components/Formulario.jsx';
 import ListadoNoticias from './components/ListadoNoticias.jsx';
+import { NOMBRES_FUENTES } from './config/fuentes';
 import useNoticias from './hooks/useNoticias.js';
 import './styles.css';
 
@@ -27,6 +28,7 @@ const BUSQUEDAS_RAPIDAS = [
 
 const HISTORIAL_KEY = 'historial_busquedas';
 const VISTA_KEY = 'vista_preferida';
+const FUENTE_KEY = 'fuente_preferida';
 
 function App() {
   const [query, setQuery] = useState('Cuba');
@@ -43,14 +45,15 @@ function App() {
     }
   });
   const [vista, setVista] = useState(() => localStorage.getItem(VISTA_KEY) || 'grid');
+  const [fuenteEspecifica, setFuenteEspecifica] = useState(() => localStorage.getItem(FUENTE_KEY) || null);
   const sentinelRef = useRef(null);
 
   const { noticias, loading, error, totalResults, nextPage, hasMore, isLoadingMore, refetch } = useNoticias({
     query,
     categoria,
-    idioma: 'es',
     pais,
     pagina,
+    fuenteEspecifica,
   });
 
   useEffect(() => {
@@ -74,6 +77,15 @@ function App() {
   useEffect(() => {
     localStorage.setItem(VISTA_KEY, vista);
   }, [vista]);
+
+  useEffect(() => {
+    if (fuenteEspecifica) {
+      localStorage.setItem(FUENTE_KEY, fuenteEspecifica);
+      return;
+    }
+
+    localStorage.removeItem(FUENTE_KEY);
+  }, [fuenteEspecifica]);
 
   useEffect(() => {
     const observer = new IntersectionObserver(
@@ -125,6 +137,10 @@ function App() {
     refetch();
   };
 
+  const mensajeSinResultados = fuenteEspecifica
+    ? `No se encontraron noticias en ${NOMBRES_FUENTES[fuenteEspecifica] || fuenteEspecifica} para esta busqueda.`
+    : undefined;
+
   return (
     <Container maxWidth="lg" sx={{ pb: 5 }}>
       <header>
@@ -151,6 +167,15 @@ function App() {
         }}
         vista={vista}
         onChangeVista={setVista}
+        fuenteEspecifica={fuenteEspecifica}
+        onChangeFuenteEspecifica={(nuevoDominio) => {
+          setPagina('');
+          setFuenteEspecifica(nuevoDominio || null);
+        }}
+        onClearFuenteEspecifica={() => {
+          setPagina('');
+          setFuenteEspecifica(null);
+        }}
       />
 
       <ListadoNoticias
@@ -164,6 +189,7 @@ function App() {
         hasMore={hasMore}
         isLoadingMore={isLoadingMore}
         query={query}
+        emptyMessage={mensajeSinResultados}
       />
     </Container>
   );

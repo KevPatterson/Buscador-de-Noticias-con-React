@@ -7,8 +7,15 @@ const UMBRAL_RESULTADOS_PREFERIDOS = 5;
 const buildBaseKey = ({ query, categoria, pais }) =>
   JSON.stringify({ query: query.trim().toLowerCase(), categoria, language: 'es', pais });
 
-const buildRequestKey = ({ query, categoria, pais, pagina }) =>
-  JSON.stringify({ query: query.trim().toLowerCase(), categoria, language: 'es', pais, pagina: pagina || '' });
+const buildRequestKey = ({ query, categoria, pais, pagina, fuenteEspecifica }) =>
+  JSON.stringify({
+    query: query.trim().toLowerCase(),
+    categoria,
+    language: 'es',
+    pais,
+    pagina: pagina || '',
+    fuenteEspecifica: fuenteEspecifica || '',
+  });
 
 const normalizeNews = (results = []) =>
   results.map((item) => ({
@@ -68,9 +75,15 @@ const getProximoGrupo = () => {
   return GRUPOS_DOMINIOS[proximo];
 };
 
-const fetchNoticias = async ({ apiKey, categoria, pais, query, pagina, signal }) => {
-  const grupo = getProximoGrupo();
-  const domainurl = grupo.join(',');
+const fetchNoticias = async ({ apiKey, categoria, pais, query, pagina, signal, fuenteEspecifica }) => {
+  let domainurl;
+
+  if (fuenteEspecifica) {
+    domainurl = fuenteEspecifica;
+  } else {
+    const grupo = getProximoGrupo();
+    domainurl = grupo.join(',');
+  }
 
   let dataFase1 = { results: [], nextPage: null, totalResults: 0 };
   let resultadosFase1 = [];
@@ -81,7 +94,16 @@ const fetchNoticias = async ({ apiKey, categoria, pais, query, pagina, signal })
     resultadosFase1 = dataFase1.results || [];
   } catch (errorFase1) {
     if (errorFase1.name === 'AbortError') throw errorFase1;
+    if (fuenteEspecifica) throw errorFase1;
     resultadosFase1 = [];
+  }
+
+  if (fuenteEspecifica) {
+    return {
+      ...dataFase1,
+      results: resultadosFase1,
+      _fuenteCubana: true,
+    };
   }
 
   if (resultadosFase1.length >= UMBRAL_RESULTADOS_PREFERIDOS) {
@@ -105,7 +127,7 @@ const fetchNoticias = async ({ apiKey, categoria, pais, query, pagina, signal })
 };
 
 const useNoticias = (params) => {
-  const { query = '', categoria = 'top', pais = 'cu', pagina = '' } = params || {};
+  const { query = '', categoria = 'top', pais = 'cu', pagina = '', fuenteEspecifica = null } = params || {};
 
   const [noticias, setNoticias] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -134,8 +156,8 @@ const useNoticias = (params) => {
   );
 
   const requestKey = useMemo(
-    () => buildRequestKey({ query: debouncedQuery, categoria, pais, pagina }),
-    [categoria, debouncedQuery, pais, pagina]
+    () => buildRequestKey({ query: debouncedQuery, categoria, pais, pagina, fuenteEspecifica }),
+    [categoria, debouncedQuery, fuenteEspecifica, pais, pagina]
   );
 
   useEffect(() => {
@@ -188,6 +210,7 @@ const useNoticias = (params) => {
           query: queryTrim,
           pagina,
           signal: controller.signal,
+          fuenteEspecifica,
         });
 
         const normalizadas = normalizeNews(data.results);
@@ -249,7 +272,7 @@ const useNoticias = (params) => {
     return () => {
       controller.abort();
     };
-  }, [baseKey, categoria, debouncedQuery, pagina, pais, requestKey, retryTick]);
+  }, [baseKey, categoria, debouncedQuery, fuenteEspecifica, pagina, pais, requestKey, retryTick]);
 
   const refetch = useCallback(() => {
     setRetryTick((value) => value + 1);

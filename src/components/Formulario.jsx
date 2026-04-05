@@ -4,14 +4,16 @@ import {
     Chip,
     IconButton,
     InputAdornment,
-    SvgIcon,
     Stack,
+    SvgIcon,
     Tab,
     Tabs,
     TextField,
     Tooltip,
     Typography,
 } from '@mui/material';
+import { NOMBRES_FUENTES } from '../config/fuentes';
+import SelectorFuente from './SelectorFuente';
 
 const AccessTimeIcon = (props) => (
     <SvgIcon {...props}>
@@ -37,6 +39,12 @@ const ViewListIcon = (props) => (
     </SvgIcon>
 );
 
+const LanguageIcon = (props) => (
+    <SvgIcon {...props}>
+        <path d="M12 2a10 10 0 1 0 10 10A10 10 0 0 0 12 2zm6.93 6h-3.14a15.27 15.27 0 0 0-1.38-3.56A8.03 8.03 0 0 1 18.93 8zM12 4.04A13.27 13.27 0 0 1 13.75 8h-3.5A13.27 13.27 0 0 1 12 4.04zM4.26 14A8.07 8.07 0 0 1 4 12c0-.68.09-1.35.26-2h3.52a16.65 16.65 0 0 0 0 4zm.81 2h3.14a15.27 15.27 0 0 0 1.38 3.56A8.03 8.03 0 0 1 5.07 16zM8.21 8H5.07a8.03 8.03 0 0 1 4.52-3.56A15.27 15.27 0 0 0 8.21 8zM12 19.96A13.27 13.27 0 0 1 10.25 16h3.5A13.27 13.27 0 0 1 12 19.96zM14.22 14H9.78a14.55 14.55 0 0 1 0-4h4.44a14.55 14.55 0 0 1 0 4zM14.41 19.56A15.27 15.27 0 0 0 15.79 16h3.14a8.03 8.03 0 0 1-4.52 3.56zM16.22 14a16.65 16.65 0 0 0 0-4h3.52c.17.65.26 1.32.26 2s-.09 1.35-.26 2z" />
+    </SvgIcon>
+);
+
 const Formulario = ({
     query,
     onChangeQuery,
@@ -52,6 +60,9 @@ const Formulario = ({
     onClearHistorial,
     vista,
     onChangeVista,
+    fuenteEspecifica,
+    onChangeFuenteEspecifica,
+    onClearFuenteEspecifica,
 }) => {
     return (
         <Box sx={{ mb: 3 }}>
@@ -87,6 +98,17 @@ const Formulario = ({
                 </Stack>
             </Stack>
 
+            {fuenteEspecifica && (
+                <Box sx={{ mb: 2 }}>
+                    <Chip
+                        icon={<LanguageIcon />}
+                        label={NOMBRES_FUENTES[fuenteEspecifica] || fuenteEspecifica}
+                        color="secondary"
+                        onDelete={onClearFuenteEspecifica}
+                    />
+                </Box>
+            )}
+
             <Box sx={{ overflowX: 'auto', pb: 1 }}>
                 <Stack direction="row" spacing={1} sx={{ width: 'max-content' }}>
                     {busquedasRapidas.map((item) => (
@@ -101,18 +123,27 @@ const Formulario = ({
                 </Stack>
             </Box>
 
-            <Tabs
-                value={categoria}
-                onChange={onChangeCategoria}
-                variant="scrollable"
-                allowScrollButtonsMobile
-                scrollButtons
-                sx={{ mt: 2 }}
-            >
-                {categorias.map((item) => (
-                    <Tab key={item.value} value={item.value} label={item.label} />
-                ))}
-            </Tabs>
+            <Stack direction={{ xs: 'column', md: 'row' }} alignItems={{ xs: 'stretch', md: 'center' }} gap={2} sx={{ mt: 2 }}>
+                <Box sx={{ flexGrow: 1, minWidth: 0 }}>
+                    <Tabs
+                        value={categoria}
+                        onChange={onChangeCategoria}
+                        variant="scrollable"
+                        allowScrollButtonsMobile
+                        scrollButtons
+                    >
+                        {categorias.map((item) => (
+                            <Tab key={item.value} value={item.value} label={item.label} />
+                        ))}
+                    </Tabs>
+                </Box>
+
+                <SelectorFuente
+                    value={fuenteEspecifica}
+                    onChange={onChangeFuenteEspecifica}
+                    onClear={onClearFuenteEspecifica}
+                />
+            </Stack>
 
             <Box sx={{ mt: 2, overflowX: 'auto', pb: 1 }}>
                 <Stack direction="row" spacing={1} alignItems="center" sx={{ width: 'max-content' }}>

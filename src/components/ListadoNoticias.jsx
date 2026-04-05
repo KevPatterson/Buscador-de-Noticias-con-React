@@ -50,6 +50,7 @@ const ListadoNoticias = ({
     hasMore,
     isLoadingMore,
     query,
+    emptyMessage,
 }) => {
     const mostrarSkeletonInicial = loading && noticias.length === 0;
     const sinResultados = !loading && noticias.length === 0 && !error;
@@ -94,7 +95,7 @@ const ListadoNoticias = ({
                 <Box sx={{ py: 7, textAlign: 'center' }}>
                     <SearchOffIcon sx={{ fontSize: 56, color: 'text.secondary' }} />
                     <Typography variant="h6" sx={{ mt: 1 }}>
-                        No encontramos noticias para esa busqueda.
+                        {emptyMessage || 'No encontramos noticias para esa busqueda.'}
                     </Typography>
                     <Typography variant="body2" color="text.secondary">
                         Prueba con terminos mas especificos, por ejemplo: Cuba energia, IA en salud, economia global.
