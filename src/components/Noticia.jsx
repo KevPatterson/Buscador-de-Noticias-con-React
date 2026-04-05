@@ -6,6 +6,7 @@ import {
     CardActions,
     CardContent,
     CardMedia,
+    Chip,
     Grid,
     IconButton,
     Link,
@@ -14,6 +15,7 @@ import {
     Tooltip,
     Typography,
 } from '@mui/material';
+import { DOMINIOS_PREFERIDOS } from '../config/fuentes';
 
 const ContentCopyIcon = (props) => (
     <SvgIcon {...props}>
@@ -37,6 +39,8 @@ const formatDate = (value) => {
     return new Intl.DateTimeFormat('es-ES', { dateStyle: 'medium', timeStyle: 'short' }).format(parsed);
 };
 
+const esFuenteCubana = (url) => DOMINIOS_PREFERIDOS.some((dominio) => url?.includes(dominio));
+
 const Noticia = ({ noticia, vista }) => {
     const [copiado, setCopiado] = useState(false);
     const [openSnack, setOpenSnack] = useState(false);
@@ -47,6 +51,7 @@ const Noticia = ({ noticia, vista }) => {
     const url = noticia.link || '#';
     const imageUrl = noticia.image_url;
     const fecha = formatDate(noticia.pubDate);
+    const fuenteCubana = esFuenteCubana(url);
 
     useEffect(() => {
         if (!copiado) return;
@@ -90,6 +95,14 @@ const Noticia = ({ noticia, vista }) => {
                         <Typography variant="body2" color="text.secondary">
                             {source} - {fecha}
                         </Typography>
+                        {fuenteCubana && (
+                            <Chip
+                                label="🇨🇺 Fuente cubana"
+                                size="small"
+                                color="secondary"
+                                sx={{ mt: 1 }}
+                            />
+                        )}
                     </Box>
 
                     <Tooltip title="Copiar titular">
@@ -130,6 +143,14 @@ const Noticia = ({ noticia, vista }) => {
                     <Typography variant="caption" color="text.secondary">
                         {source}
                     </Typography>
+                    {fuenteCubana && (
+                        <Chip
+                            label="🇨🇺 Fuente cubana"
+                            size="small"
+                            color="secondary"
+                            sx={{ mt: 1, mb: 1, display: 'inline-flex' }}
+                        />
+                    )}
                     <Typography variant="h6" sx={{ mt: 0.5, mb: 1.5 }}>
                         {title}
                     </Typography>

@@ -1,12 +1,14 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { DOMINIOS_STRING } from '../config/fuentes';
 
 const API_BASE_URL = 'https://newsdata.io/api/1/news';
+const UMBRAL_RESULTADOS_PREFERIDOS = 5;
 
-const buildBaseKey = ({ query, categoria, idioma, pais }) =>
-  JSON.stringify({ query: query.trim().toLowerCase(), categoria, idioma, pais });
+const buildBaseKey = ({ query, categoria, pais }) =>
+  JSON.stringify({ query: query.trim().toLowerCase(), categoria, language: 'es', pais });
 
-const buildRequestKey = ({ query, categoria, idioma, pais, pagina }) =>
-  JSON.stringify({ query: query.trim().toLowerCase(), categoria, idioma, pais, pagina: pagina || '' });
+const buildRequestKey = ({ query, categoria, pais, pagina }) =>
+  JSON.stringify({ query: query.trim().toLowerCase(), categoria, language: 'es', pais, pagina: pagina || '' });
 
 const normalizeNews = (results = []) =>
   results.map((item) => ({
@@ -18,8 +20,81 @@ const normalizeNews = (results = []) =>
     pubDate: item.pubDate,
   }));
 
+const dedupeByLink = (results = []) => {
+  const mapa = new Map();
+
+  results.forEach((item, index) => {
+    const clave = item.link || `${item.title || 'sin-titulo'}-${index}`;
+    if (!mapa.has(clave)) mapa.set(clave, item);
+  });
+
+  return Array.from(mapa.values());
+};
+
+const buildRequestUrl = ({ apiKey, categoria, pais, query, pagina, domainurl }) => {
+  const queryParams = new URLSearchParams({
+    apikey: apiKey,
+    language: 'es',
+    category: categoria,
+  });
+
+  if (pais) queryParams.set('country', pais);
+  if (query.length >= 2) queryParams.set('q', query);
+  if (pagina) queryParams.set('page', pagina);
+  if (domainurl) queryParams.set('domainurl', domainurl);
+
+  return `${API_BASE_URL}?${queryParams.toString()}`;
+};
+
+const fetchNewsData = async ({ url, signal }) => {
+  const response = await fetch(url, { signal });
+  const data = await response.json();
+
+  if (!response.ok || data.status === 'error') {
+    throw new Error(data.results?.message || 'No se pudo obtener noticias.');
+  }
+
+  return data;
+};
+
+const fetchNoticiasEnDosFases = async ({ apiKey, categoria, pais, query, pagina, signal }) => {
+  const urlFase1 = buildRequestUrl({ apiKey, categoria, pais, query, pagina, domainurl: DOMINIOS_STRING });
+  const dataFase1 = await fetchNewsData({ url: urlFase1, signal });
+  const resultadosFase1 = dataFase1.results || [];
+
+  if (resultadosFase1.length >= UMBRAL_RESULTADOS_PREFERIDOS) {
+    return {
+      results: resultadosFase1,
+      nextPage: dataFase1.nextPage || null,
+      totalResults: typeof dataFase1.totalResults === 'number' ? dataFase1.totalResults : resultadosFase1.length,
+    };
+  }
+
+  try {
+    const urlFase2 = buildRequestUrl({ apiKey, categoria, pais, query, pagina });
+    const dataFase2 = await fetchNewsData({ url: urlFase2, signal });
+    const resultadosFase2 = dataFase2.results || [];
+    const combinados = dedupeByLink([...resultadosFase1, ...resultadosFase2]);
+
+    return {
+      results: combinados,
+      nextPage: dataFase2.nextPage || dataFase1.nextPage || null,
+      totalResults: typeof dataFase2.totalResults === 'number' ? dataFase2.totalResults : combinados.length,
+    };
+  } catch (errorFase2) {
+    if (errorFase2.name === 'AbortError') throw errorFase2;
+
+    // Si el fallback falla, devolvemos lo obtenido en la fase 1 para no perder resultados.
+    return {
+      results: resultadosFase1,
+      nextPage: dataFase1.nextPage || null,
+      totalResults: typeof dataFase1.totalResults === 'number' ? dataFase1.totalResults : resultadosFase1.length,
+    };
+  }
+};
+
 const useNoticias = (params) => {
-  const { query = '', categoria = 'top', idioma = 'es', pais = 'cu', pagina = '' } = params || {};
+  const { query = '', categoria = 'top', pais = 'cu', pagina = '' } = params || {};
 
   const [noticias, setNoticias] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -43,13 +118,13 @@ const useNoticias = (params) => {
   }, [query]);
 
   const baseKey = useMemo(
-    () => buildBaseKey({ query: debouncedQuery, categoria, idioma, pais }),
-    [categoria, debouncedQuery, idioma, pais]
+    () => buildBaseKey({ query: debouncedQuery, categoria, pais }),
+    [categoria, debouncedQuery, pais]
   );
 
   const requestKey = useMemo(
-    () => buildRequestKey({ query: debouncedQuery, categoria, idioma, pais, pagina }),
-    [categoria, debouncedQuery, idioma, pais, pagina]
+    () => buildRequestKey({ query: debouncedQuery, categoria, pais, pagina }),
+    [categoria, debouncedQuery, pais, pagina]
   );
 
   useEffect(() => {
@@ -93,26 +168,16 @@ const useNoticias = (params) => {
       }
     }
 
-    const queryParams = new URLSearchParams({
-      apikey: apiKey,
-      language: idioma,
-      category: categoria,
-    });
-
-    if (pais) queryParams.set('country', pais);
-    if (queryTrim.length >= 2) queryParams.set('q', queryTrim);
-    if (pagina) queryParams.set('page', pagina);
-
-    const requestUrl = `${API_BASE_URL}?${queryParams.toString()}`;
-
     const consultarApi = async () => {
       try {
-        const response = await fetch(requestUrl, { signal: controller.signal });
-        const data = await response.json();
-
-        if (!response.ok || data.status === 'error') {
-          throw new Error(data.results?.message || 'No se pudo obtener noticias.');
-        }
+        const data = await fetchNoticiasEnDosFases({
+          apiKey,
+          categoria,
+          pais,
+          query: queryTrim,
+          pagina,
+          signal: controller.signal,
+        });
 
         const normalizadas = normalizeNews(data.results);
         const paginaSiguiente = data.nextPage || null;
@@ -173,7 +238,7 @@ const useNoticias = (params) => {
     return () => {
       controller.abort();
     };
-  }, [baseKey, categoria, debouncedQuery, idioma, pagina, pais, requestKey, retryTick]);
+  }, [baseKey, categoria, debouncedQuery, pagina, pais, requestKey, retryTick]);
 
   const refetch = useCallback(() => {
     setRetryTick((value) => value + 1);
