@@ -38,14 +38,23 @@ const dedupeByLink = (results = []) => {
   return Array.from(mapa.values());
 };
 
-const buildRequestUrl = ({ apiKey, categoria, pais, query, pagina, domainurl }) => {
+const buildRequestUrl = ({
+  apiKey,
+  categoria,
+  pais,
+  query,
+  pagina,
+  domainurl,
+  includeCountry = true,
+  includeCategory = true,
+}) => {
   const queryParams = new URLSearchParams({
     apikey: apiKey,
     language: 'es',
-    category: categoria,
   });
 
-  if (pais) queryParams.set('country', pais);
+  if (includeCategory && categoria) queryParams.set('category', categoria);
+  if (includeCountry && pais) queryParams.set('country', pais);
   if (query.length >= 2) queryParams.set('q', query);
   if (pagina) queryParams.set('page', pagina);
   if (domainurl) queryParams.set('domainurl', domainurl);
@@ -111,9 +120,33 @@ const fetchNoticias = async ({ apiKey, categoria, pais, query, pagina, signal, f
   let resultadosFase1 = [];
 
   try {
-    const urlFase1 = buildRequestUrl({ apiKey, categoria, pais, query, pagina, domainurl });
+    const urlFase1 = buildRequestUrl({
+      apiKey,
+      categoria,
+      pais,
+      query,
+      pagina,
+      domainurl,
+      includeCountry: !fuenteEspecifica,
+      includeCategory: !fuenteEspecifica,
+    });
     dataFase1 = await fetchNewsData({ url: urlFase1, signal });
     resultadosFase1 = dataFase1.results || [];
+
+    if (fuenteEspecifica && resultadosFase1.length === 0 && query.length >= 2) {
+      const urlSinQuery = buildRequestUrl({
+        apiKey,
+        categoria,
+        pais,
+        query: '',
+        pagina,
+        domainurl,
+        includeCountry: false,
+        includeCategory: false,
+      });
+      dataFase1 = await fetchNewsData({ url: urlSinQuery, signal });
+      resultadosFase1 = dataFase1.results || [];
+    }
   } catch (errorFase1) {
     if (errorFase1.name === 'AbortError') throw errorFase1;
 

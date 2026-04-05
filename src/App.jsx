@@ -85,6 +85,8 @@ function App() {
     noticias: noticiasRSS,
     loading: loadingRSS,
     error: errorRSS,
+    feedNoDisponible,
+    feedMensaje,
     refetch: refetchRSS,
   } = useRSS({
     fuenteEspecifica,
@@ -185,9 +187,12 @@ function App() {
     refetchNewsData();
   };
 
-  const mensajeSinResultados = fuenteEspecifica
-    ? `No se encontraron noticias en ${NOMBRES_FUENTES[fuenteEspecifica] || fuenteEspecifica} para esta busqueda.`
-    : undefined;
+  const nombreFuenteSeleccionada = NOMBRES_FUENTES[fuenteEspecifica] || fuenteEspecifica;
+  const mensajeSinResultados = usarRSS && feedNoDisponible
+    ? `La fuente ${nombreFuenteSeleccionada} esta temporalmente no disponible. ${feedMensaje || 'Intenta mas tarde.'}`
+    : fuenteEspecifica
+      ? `No se encontraron noticias en ${nombreFuenteSeleccionada} para esta busqueda.`
+      : undefined;
 
   return (
     <Container maxWidth="lg" sx={{ pb: 5 }}>

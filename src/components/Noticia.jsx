@@ -40,7 +40,7 @@ const formatDate = (value) => {
 };
 
 const esFuenteCubana = (url) => DOMINIOS_PREFERIDOS.some((dominio) => url?.includes(dominio));
-const HOSTS_IMAGEN_BLOQUEADOS = new Set(['media.cubadebate.cu', 'cuba.cu']);
+const HOSTS_IMAGEN_BLOQUEADOS = new Set(['media.cubadebate.cu', 'cuba.cu', 'www.cubahora.cu']);
 
 const esImagenSegura = (imageUrl) => {
     if (!imageUrl) return false;
