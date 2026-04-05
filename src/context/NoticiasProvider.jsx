@@ -1,3 +1,4 @@
+/* eslint-disable react/prop-types */
 import axios from 'axios';
 import { useState, useEffect, createContext } from 'react';
 
@@ -46,7 +47,7 @@ const NoticiasProvider = ({ children }) => {
             }
         };
         consultarAPI();
-    }, [pagina]);
+    }, [pagina, categoria]);
 
     const handleChangeCategoria = (e) => {
         setCategoria(e.target.value);

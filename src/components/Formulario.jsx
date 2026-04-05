@@ -1,8 +1,10 @@
+/* eslint-disable react/prop-types */
 import {
     Box,
     Chip,
     IconButton,
     InputAdornment,
+    SvgIcon,
     Stack,
     Tab,
     Tabs,
@@ -10,10 +12,30 @@ import {
     Tooltip,
     Typography,
 } from '@mui/material';
-import AccessTimeIcon from '@mui/icons-material/AccessTime';
-import ClearIcon from '@mui/icons-material/Clear';
-import GridViewIcon from '@mui/icons-material/GridView';
-import ViewListIcon from '@mui/icons-material/ViewList';
+
+const AccessTimeIcon = (props) => (
+    <SvgIcon {...props}>
+        <path d="M12 1a11 11 0 1 0 11 11A11 11 0 0 0 12 1zm1 11.41 3.29 3.3-1.42 1.41L11 13V6h2z" />
+    </SvgIcon>
+);
+
+const ClearIcon = (props) => (
+    <SvgIcon {...props}>
+        <path d="M18.3 5.71 12 12l6.3 6.29-1.41 1.42L10.59 13.4 4.29 19.71 2.88 18.3 9.17 12 2.88 5.71 4.29 4.29l6.3 6.3 6.3-6.3z" />
+    </SvgIcon>
+);
+
+const GridViewIcon = (props) => (
+    <SvgIcon {...props}>
+        <path d="M4 4h7v7H4zm9 0h7v7h-7zM4 13h7v7H4zm9 0h7v7h-7z" />
+    </SvgIcon>
+);
+
+const ViewListIcon = (props) => (
+    <SvgIcon {...props}>
+        <path d="M4 5h3v3H4zm0 5h3v3H4zm0 5h3v3H4zM9 5h11v3H9zm0 5h11v3H9zm0 5h11v3H9z" />
+    </SvgIcon>
+);
 
 const Formulario = ({
     query,

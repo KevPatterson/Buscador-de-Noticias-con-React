@@ -1,12 +1,19 @@
+/* eslint-disable react/prop-types */
 import Alert from '@mui/material/Alert';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
 import CircularProgress from '@mui/material/CircularProgress';
 import Grid from '@mui/material/Grid';
 import Skeleton from '@mui/material/Skeleton';
+import SvgIcon from '@mui/material/SvgIcon';
 import Typography from '@mui/material/Typography';
-import SearchOffIcon from '@mui/icons-material/SearchOff';
 import Noticia from './Noticia';
+
+const SearchOffIcon = (props) => (
+    <SvgIcon {...props}>
+        <path d="M2.81 2.81 1.39 4.22l5 5A7 7 0 0 0 9 18a6.93 6.93 0 0 0 4.78-1.9l5 5 1.41-1.41zM9 4a5 5 0 0 1 5 5 4.94 4.94 0 0 1-1 3L7 6a4.94 4.94 0 0 1 2-2zM9 2a7 7 0 0 0-4.95 11.95l1.43-1.43A5 5 0 0 1 9 4a4.94 4.94 0 0 1 3.52 1.48l1.43-1.43A7 7 0 0 0 9 2z" />
+    </SvgIcon>
+);
 
 const SkeletonCard = ({ vista }) => {
     if (vista === 'list') {

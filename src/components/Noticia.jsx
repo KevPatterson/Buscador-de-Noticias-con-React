@@ -1,3 +1,4 @@
+/* eslint-disable react/prop-types */
 import { useEffect, useMemo, useState } from 'react';
 import {
     Box,
@@ -9,11 +10,23 @@ import {
     IconButton,
     Link,
     Snackbar,
+    SvgIcon,
     Tooltip,
     Typography,
 } from '@mui/material';
-import ContentCopyIcon from '@mui/icons-material/ContentCopy';
-import CheckIcon from '@mui/icons-material/Check';
+
+const ContentCopyIcon = (props) => (
+    <SvgIcon {...props}>
+        <path d="M16 1H4a2 2 0 0 0-2 2v12h2V3h12z" />
+        <path d="M19 5H8a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h11a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2zm0 16H8V7h11z" />
+    </SvgIcon>
+);
+
+const CheckIcon = (props) => (
+    <SvgIcon {...props}>
+        <path d="M9 16.2 4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4z" />
+    </SvgIcon>
+);
 
 const formatDate = (value) => {
     if (!value) return 'Fecha no disponible';
