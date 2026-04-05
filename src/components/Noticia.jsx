@@ -15,7 +15,6 @@ import {
     Tooltip,
     Typography,
 } from '@mui/material';
-import { DOMINIOS_PREFERIDOS } from '../config/fuentes';
 
 const ContentCopyIcon = (props) => (
     <SvgIcon {...props}>
@@ -39,7 +38,16 @@ const formatDate = (value) => {
     return new Intl.DateTimeFormat('es-ES', { dateStyle: 'medium', timeStyle: 'short' }).format(parsed);
 };
 
-const esFuenteCubana = (url) => DOMINIOS_PREFERIDOS.some((dominio) => url?.includes(dominio));
+const esFuenteCubana = (url) => {
+    if (!url) return false;
+
+    try {
+        const hostname = new URL(url).hostname.toLowerCase();
+        return hostname.endsWith('.cu') || hostname === 'cu';
+    } catch {
+        return false;
+    }
+};
 const HOSTS_IMAGEN_BLOQUEADOS = new Set(['media.cubadebate.cu', 'cuba.cu', 'www.cubahora.cu']);
 
 const esImagenSegura = (imageUrl) => {
@@ -111,7 +119,7 @@ const Noticia = ({ noticia, vista }) => {
                         </Typography>
                         {fuenteCubana && (
                             <Chip
-                                label="🇨🇺 Fuente cubana"
+                                label="Fuente cubana"
                                 size="small"
                                 color="secondary"
                                 sx={{ mt: 1 }}
@@ -165,7 +173,7 @@ const Noticia = ({ noticia, vista }) => {
                     </Typography>
                     {fuenteCubana && (
                         <Chip
-                            label="🇨🇺 Fuente cubana"
+                            label="Fuente cubana"
                             size="small"
                             color="secondary"
                             sx={{ mt: 1, mb: 1, display: 'inline-flex' }}
