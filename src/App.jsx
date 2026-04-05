@@ -3,7 +3,9 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import Formulario from './components/Formulario.jsx';
 import ListadoNoticias from './components/ListadoNoticias.jsx';
 import { NOMBRES_FUENTES } from './config/fuentes';
+import { FUENTES_INSTITUCIONALES, FUENTES_RSS } from './config/fuentes-rss';
 import useNoticias from './hooks/useNoticias.js';
+import useRSS from './hooks/useRSS.js';
 import './styles.css';
 
 const CATEGORIAS = [
@@ -48,13 +50,53 @@ function App() {
   const [fuenteEspecifica, setFuenteEspecifica] = useState(() => localStorage.getItem(FUENTE_KEY) || null);
   const sentinelRef = useRef(null);
 
-  const { noticias, loading, error, totalResults, nextPage, hasMore, isLoadingMore, refetch } = useNoticias({
-    query,
+  const fuenteRSS = useMemo(
+    () => FUENTES_RSS.find((fuente) => fuente.dominio === fuenteEspecifica) || null,
+    [fuenteEspecifica]
+  );
+
+  const fuenteInstitucional = useMemo(
+    () => FUENTES_INSTITUCIONALES.find((fuente) => fuente.dominio === fuenteEspecifica) || null,
+    [fuenteEspecifica]
+  );
+
+  const queryNewsData = fuenteInstitucional ? fuenteInstitucional.query : query;
+  const usarRSS = Boolean(fuenteRSS);
+
+  const {
+    noticias: noticiasNewsData,
+    loading: loadingNewsData,
+    error: errorNewsData,
+    totalResults: totalResultsNewsData,
+    nextPage,
+    hasMore,
+    isLoadingMore,
+    refetch: refetchNewsData,
+  } = useNoticias({
+    query: usarRSS ? '' : queryNewsData,
     categoria,
     pais,
     pagina,
-    fuenteEspecifica,
+    fuenteEspecifica: usarRSS ? null : fuenteEspecifica,
   });
+
+  const {
+    noticias: noticiasRSS,
+    loading: loadingRSS,
+    error: errorRSS,
+    refetch: refetchRSS,
+  } = useRSS({
+    fuenteEspecifica,
+    query,
+  });
+
+  const noticias = usarRSS ? noticiasRSS : noticiasNewsData;
+  const loading = usarRSS ? loadingRSS : loadingNewsData;
+  const error = usarRSS ? errorRSS : errorNewsData;
+  const totalResults = usarRSS ? noticiasRSS.length : totalResultsNewsData;
+  const nextPageActivo = usarRSS ? null : nextPage;
+  const hasMoreActivo = usarRSS ? false : hasMore;
+  const isLoadingMoreActivo = usarRSS ? false : isLoadingMore;
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -91,9 +133,9 @@ function App() {
     const observer = new IntersectionObserver(
       (entries) => {
         const [entry] = entries;
-        if (!entry.isIntersecting || loading || isLoadingMore) return;
-        if (!hasMore || !nextPage) return;
-        setPagina(nextPage);
+        if (!entry.isIntersecting || loading || isLoadingMoreActivo) return;
+        if (!hasMoreActivo || !nextPageActivo) return;
+        setPagina(nextPageActivo);
       },
       { threshold: 0.1 }
     );
@@ -105,7 +147,7 @@ function App() {
       if (node) observer.unobserve(node);
       observer.disconnect();
     };
-  }, [hasMore, isLoadingMore, loading, nextPage]);
+  }, [hasMoreActivo, isLoadingMoreActivo, loading, nextPageActivo]);
 
   const chipActivo = useMemo(
     () => BUSQUEDAS_RAPIDAS.find((item) => item.value.toLowerCase() === query.trim().toLowerCase())?.value || '',
@@ -134,7 +176,12 @@ function App() {
   };
 
   const handleRetry = () => {
-    refetch();
+    if (usarRSS) {
+      refetchRSS();
+      return;
+    }
+
+    refetchNewsData();
   };
 
   const mensajeSinResultados = fuenteEspecifica
@@ -186,8 +233,8 @@ function App() {
         onRetry={handleRetry}
         vista={vista}
         sentinelRef={sentinelRef}
-        hasMore={hasMore}
-        isLoadingMore={isLoadingMore}
+        isLoadingMore={isLoadingMoreActivo}
+        hasMore={hasMoreActivo}
         query={query}
         emptyMessage={mensajeSinResultados}
       />
