@@ -20,7 +20,7 @@ const CATEGORIAS = [
 ];
 
 const BUSQUEDAS_RAPIDAS = [
-  { label: '🇨🇺 Cuba', value: 'Cuba' },
+  { label: 'Cuba', value: 'Cuba' },
   { label: '💡 Energia Cuba', value: 'Energia Cuba' },
   { label: '💻 Tecnologia', value: 'Tecnologia' },
   { label: '🏥 Salud', value: 'Salud' },

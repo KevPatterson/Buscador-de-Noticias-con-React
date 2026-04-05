@@ -39,6 +39,17 @@ const ViewListIcon = (props) => (
     </SvgIcon>
 );
 
+const CubaFlagIcon = (props) => (
+    <SvgIcon {...props} viewBox="0 0 30 20">
+        <rect width="30" height="20" fill="#fff" />
+        <rect y="0" width="30" height="4" fill="#1f57c3" />
+        <rect y="8" width="30" height="4" fill="#1f57c3" />
+        <rect y="16" width="30" height="4" fill="#1f57c3" />
+        <polygon points="0,0 13,10 0,20" fill="#cf2027" />
+        <path d="M5 7.4l0.7 1.6 1.7 0.1-1.3 1 0.5 1.6L5 10.8l-1.6 0.9 0.5-1.6-1.3-1 1.7-0.1z" fill="#fff" />
+    </SvgIcon>
+);
+
 const LanguageIcon = (props) => (
     <SvgIcon {...props}>
         <path d="M12 2a10 10 0 1 0 10 10A10 10 0 0 0 12 2zm6.93 6h-3.14a15.27 15.27 0 0 0-1.38-3.56A8.03 8.03 0 0 1 18.93 8zM12 4.04A13.27 13.27 0 0 1 13.75 8h-3.5A13.27 13.27 0 0 1 12 4.04zM4.26 14A8.07 8.07 0 0 1 4 12c0-.68.09-1.35.26-2h3.52a16.65 16.65 0 0 0 0 4zm.81 2h3.14a15.27 15.27 0 0 0 1.38 3.56A8.03 8.03 0 0 1 5.07 16zM8.21 8H5.07a8.03 8.03 0 0 1 4.52-3.56A15.27 15.27 0 0 0 8.21 8zM12 19.96A13.27 13.27 0 0 1 10.25 16h3.5A13.27 13.27 0 0 1 12 19.96zM14.22 14H9.78a14.55 14.55 0 0 1 0-4h4.44a14.55 14.55 0 0 1 0 4zM14.41 19.56A15.27 15.27 0 0 0 15.79 16h3.14a8.03 8.03 0 0 1-4.52 3.56zM16.22 14a16.65 16.65 0 0 0 0-4h3.52c.17.65.26 1.32.26 2s-.09 1.35-.26 2z" />
@@ -115,6 +126,7 @@ const Formulario = ({
                         <Chip
                             key={item.value}
                             label={item.label}
+                            icon={item.value === 'Cuba' ? <CubaFlagIcon /> : undefined}
                             color={chipActivo === item.value ? 'secondary' : 'default'}
                             variant={chipActivo === item.value ? 'filled' : 'outlined'}
                             onClick={() => onQuickSearch(item.value)}
