@@ -257,7 +257,7 @@ const useNoticias = (params) => {
       return;
     }
 
-    if (queryTrim.length < 2) {
+    if (queryTrim.length === 1) {
       setNoticias([]);
       setTotalResults(0);
       setError('');

@@ -100,7 +100,7 @@ const ListadoNoticias = ({
                     <Typography variant="body2" color="text.secondary">
                         Prueba con terminos mas especificos, por ejemplo: Cuba energia, IA en salud, economia global.
                     </Typography>
-                    {query.trim().length < 2 && (
+                    {query.trim().length === 1 && (
                         <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
                             Escribe al menos 2 caracteres para iniciar la busqueda.
                         </Typography>
