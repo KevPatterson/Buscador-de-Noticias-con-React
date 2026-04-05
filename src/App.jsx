@@ -62,6 +62,7 @@ function App() {
 
   const queryNewsData = fuenteInstitucional ? fuenteInstitucional.query : query;
   const usarRSS = Boolean(fuenteRSS);
+  const usarInstitucional = Boolean(fuenteInstitucional);
 
   const {
     noticias: noticiasNewsData,
@@ -77,7 +78,7 @@ function App() {
     categoria,
     pais,
     pagina,
-    fuenteEspecifica: usarRSS ? null : fuenteEspecifica,
+    fuenteEspecifica: usarRSS || usarInstitucional ? null : fuenteEspecifica,
   });
 
   const {

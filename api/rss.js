@@ -71,12 +71,23 @@ export default async function handler(req, res) {
       headers: { 'User-Agent': 'Mozilla/5.0 (compatible; NewsApp/1.0)' },
     });
 
-    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    if (!response.ok) {
+      res.setHeader('Cache-Control', 's-maxage=300');
+      return res.status(200).json({
+        status: 'ok',
+        results: [],
+        message: `Feed no disponible (HTTP ${response.status})`,
+      });
+    }
 
     const xml = await response.text();
     const parsed = parser.parse(xml);
 
     const channel = parsed?.rss?.channel || parsed?.feed;
+    if (!channel) {
+      res.setHeader('Cache-Control', 's-maxage=300');
+      return res.status(200).json({ status: 'ok', results: [], message: 'Formato RSS no reconocido' });
+    }
     const items = channel?.item || channel?.entry || [];
     const itemArray = asArray(items);
 
@@ -97,6 +108,11 @@ export default async function handler(req, res) {
     res.setHeader('Cache-Control', 's-maxage=300');
     return res.status(200).json({ status: 'ok', results });
   } catch (error) {
-    return res.status(500).json({ status: 'error', message: error.message });
+    res.setHeader('Cache-Control', 's-maxage=120');
+    return res.status(200).json({
+      status: 'ok',
+      results: [],
+      message: error.message || 'No se pudo consultar el feed RSS',
+    });
   }
 }
