@@ -40,16 +40,30 @@ const formatDate = (value) => {
 };
 
 const esFuenteCubana = (url) => DOMINIOS_PREFERIDOS.some((dominio) => url?.includes(dominio));
+const HOSTS_IMAGEN_BLOQUEADOS = new Set(['media.cubadebate.cu', 'cuba.cu']);
+
+const esImagenSegura = (imageUrl) => {
+    if (!imageUrl) return false;
+
+    try {
+        const host = new URL(imageUrl).hostname;
+        return !HOSTS_IMAGEN_BLOQUEADOS.has(host);
+    } catch {
+        return false;
+    }
+};
 
 const Noticia = ({ noticia, vista }) => {
     const [copiado, setCopiado] = useState(false);
     const [openSnack, setOpenSnack] = useState(false);
+    const [errorImagen, setErrorImagen] = useState(false);
 
     const title = noticia.title || 'Titular no disponible';
     const description = noticia.description || 'Sin descripcion disponible.';
     const source = noticia.source_id || 'Fuente desconocida';
     const url = noticia.link || '#';
     const imageUrl = noticia.image_url;
+    const mostrarImagen = esImagenSegura(imageUrl) && !errorImagen;
     const fecha = formatDate(noticia.pubDate);
     const fuenteCubana = esFuenteCubana(url);
 
@@ -120,8 +134,14 @@ const Noticia = ({ noticia, vista }) => {
     return (
         <Grid item xs={12} sm={6} md={4}>
             <Card sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
-                {imageUrl ? (
-                    <CardMedia component="img" height="180" image={imageUrl} alt={`Imagen de la noticia ${title}`} />
+                {mostrarImagen ? (
+                    <CardMedia
+                        component="img"
+                        height="180"
+                        image={imageUrl}
+                        alt={`Imagen de la noticia ${title}`}
+                        onError={() => setErrorImagen(true)}
+                    />
                 ) : (
                     <Box
                         sx={{

@@ -50,7 +50,25 @@ export const NOMBRES_FUENTES = {
   'infobae.com': 'Infobae',
 };
 
-export const GRUPOS_DOMINIOS = DOMINIOS_PREFERIDOS.reduce((grupos, dominio, i) => {
+// Dominios detectados como no soportados por NewsData.io (422 UnsupportedFilter).
+export const DOMINIOS_NO_NEWDATA = [
+  'bc.gob.cu',
+  'cubagob.cu',
+  'espanol.cgtn.com',
+  'giron.cu',
+  'jit.cu',
+  'minrex.gob.cu',
+  'noticiaslatam.lat',
+  'prensalatina.cu',
+  'radio26.icrt.cu',
+  'radiobayamo.icrt.cu',
+  'tribuna.cu',
+  'tvbrics.com',
+];
+
+export const DOMINIOS_NEWDATA = DOMINIOS_PREFERIDOS.filter((dominio) => !DOMINIOS_NO_NEWDATA.includes(dominio));
+
+export const GRUPOS_DOMINIOS = DOMINIOS_NEWDATA.reduce((grupos, dominio, i) => {
   const grupoIndex = Math.floor(i / 5);
   if (!grupos[grupoIndex]) grupos[grupoIndex] = [];
   grupos[grupoIndex].push(dominio);

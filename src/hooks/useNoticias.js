@@ -97,6 +97,16 @@ const fetchNoticias = async ({ apiKey, categoria, pais, query, pagina, signal, f
     domainurl = grupo.join(',');
   }
 
+  if (!domainurl) {
+    const urlSinDominio = buildRequestUrl({ apiKey, categoria, pais, query, pagina });
+    const dataSinDominio = await fetchNewsData({ url: urlSinDominio, signal });
+    return {
+      ...dataSinDominio,
+      results: dataSinDominio.results || [],
+      _fuenteCubana: false,
+    };
+  }
+
   let dataFase1 = { results: [], nextPage: null, totalResults: 0 };
   let resultadosFase1 = [];
 
