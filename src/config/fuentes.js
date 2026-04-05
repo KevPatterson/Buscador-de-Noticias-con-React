@@ -1,5 +1,4 @@
 export const DOMINIOS_PREFERIDOS = [
-  // Medios cubanos nacionales
   "cubadebate.cu",
   "granma.cu",
   "juventudrebelde.cu",
@@ -9,20 +8,14 @@ export const DOMINIOS_PREFERIDOS = [
   "radioreloj.cu",
   "prensalatina.cu",
   "jit.cu",
-
-  // Medios cubanos provinciales
   "5septiembre.cu",
   "giron.cu",
   "escambray.cu",
   "radio26.icrt.cu",
   "radiobayamo.icrt.cu",
-
-  // Portales oficiales cubanos
   "cubagob.cu",
   "minrex.gob.cu",
   "bc.gob.cu",
-
-  // Medios internacionales presentes en Cuba
   "telesurtv.net",
   "noticiaslatam.lat",
   "actualidad.rt.com",
@@ -31,4 +24,11 @@ export const DOMINIOS_PREFERIDOS = [
   "infobae.com",
 ];
 
-export const DOMINIOS_STRING = DOMINIOS_PREFERIDOS.join(",");
+export const GRUPOS_DOMINIOS = DOMINIOS_PREFERIDOS.reduce((grupos, dominio, i) => {
+  const grupoIndex = Math.floor(i / 5);
+  if (!grupos[grupoIndex]) grupos[grupoIndex] = [];
+  grupos[grupoIndex].push(dominio);
+  return grupos;
+}, []);
+
+export const GRUPOS_PRIORITARIOS = GRUPOS_DOMINIOS.slice(0, 3);

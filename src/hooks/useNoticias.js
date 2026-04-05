@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { DOMINIOS_STRING } from '../config/fuentes';
+import { GRUPOS_DOMINIOS } from '../config/fuentes';
 
 const API_BASE_URL = 'https://newsdata.io/api/1/news';
 const UMBRAL_RESULTADOS_PREFERIDOS = 5;
@@ -57,40 +57,51 @@ const fetchNewsData = async ({ url, signal }) => {
   return data;
 };
 
-const fetchNoticiasEnDosFases = async ({ apiKey, categoria, pais, query, pagina, signal }) => {
-  const urlFase1 = buildRequestUrl({ apiKey, categoria, pais, query, pagina, domainurl: DOMINIOS_STRING });
-  const dataFase1 = await fetchNewsData({ url: urlFase1, signal });
-  const resultadosFase1 = dataFase1.results || [];
+const getProximoGrupo = () => {
+  const total = GRUPOS_DOMINIOS.length;
+  if (!total) return [];
+
+  const ultimo = parseInt(sessionStorage.getItem('ultimo_grupo_dominio') ?? '-1', 10);
+  const proximo = (ultimo + 1) % total;
+  sessionStorage.setItem('ultimo_grupo_dominio', String(proximo));
+
+  return GRUPOS_DOMINIOS[proximo];
+};
+
+const fetchNoticias = async ({ apiKey, categoria, pais, query, pagina, signal }) => {
+  const grupo = getProximoGrupo();
+  const domainurl = grupo.join(',');
+
+  let dataFase1 = { results: [], nextPage: null, totalResults: 0 };
+  let resultadosFase1 = [];
+
+  try {
+    const urlFase1 = buildRequestUrl({ apiKey, categoria, pais, query, pagina, domainurl });
+    dataFase1 = await fetchNewsData({ url: urlFase1, signal });
+    resultadosFase1 = dataFase1.results || [];
+  } catch (errorFase1) {
+    if (errorFase1.name === 'AbortError') throw errorFase1;
+    resultadosFase1 = [];
+  }
 
   if (resultadosFase1.length >= UMBRAL_RESULTADOS_PREFERIDOS) {
     return {
+      ...dataFase1,
       results: resultadosFase1,
-      nextPage: dataFase1.nextPage || null,
-      totalResults: typeof dataFase1.totalResults === 'number' ? dataFase1.totalResults : resultadosFase1.length,
+      _fuenteCubana: true,
     };
   }
 
-  try {
-    const urlFase2 = buildRequestUrl({ apiKey, categoria, pais, query, pagina });
-    const dataFase2 = await fetchNewsData({ url: urlFase2, signal });
-    const resultadosFase2 = dataFase2.results || [];
-    const combinados = dedupeByLink([...resultadosFase1, ...resultadosFase2]);
+  const urlFase2 = buildRequestUrl({ apiKey, categoria, pais, query, pagina });
+  const dataFase2 = await fetchNewsData({ url: urlFase2, signal });
+  const resultadosFase2 = dataFase2.results || [];
+  const combinados = dedupeByLink([...resultadosFase1, ...resultadosFase2]);
 
-    return {
-      results: combinados,
-      nextPage: dataFase2.nextPage || dataFase1.nextPage || null,
-      totalResults: typeof dataFase2.totalResults === 'number' ? dataFase2.totalResults : combinados.length,
-    };
-  } catch (errorFase2) {
-    if (errorFase2.name === 'AbortError') throw errorFase2;
-
-    // Si el fallback falla, devolvemos lo obtenido en la fase 1 para no perder resultados.
-    return {
-      results: resultadosFase1,
-      nextPage: dataFase1.nextPage || null,
-      totalResults: typeof dataFase1.totalResults === 'number' ? dataFase1.totalResults : resultadosFase1.length,
-    };
-  }
+  return {
+    ...dataFase2,
+    results: combinados,
+    _fuenteCubana: false,
+  };
 };
 
 const useNoticias = (params) => {
@@ -170,7 +181,7 @@ const useNoticias = (params) => {
 
     const consultarApi = async () => {
       try {
-        const data = await fetchNoticiasEnDosFases({
+        const data = await fetchNoticias({
           apiKey,
           categoria,
           pais,
