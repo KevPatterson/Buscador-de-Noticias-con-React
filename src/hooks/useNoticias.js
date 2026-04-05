@@ -58,10 +58,22 @@ const fetchNewsData = async ({ url, signal }) => {
   const data = await response.json();
 
   if (!response.ok || data.status === 'error') {
-    throw new Error(data.results?.message || 'No se pudo obtener noticias.');
+    const requestError = new Error(data.results?.message || 'No se pudo obtener noticias.');
+    requestError.status = response.status;
+    requestError.results = data.results;
+    throw requestError;
   }
 
   return data;
+};
+
+const getDominiosInvalidos = (requestError) => {
+  if (requestError?.status !== 422) return [];
+  if (!Array.isArray(requestError.results)) return [];
+
+  return requestError.results
+    .filter((item) => item?.code === 'UnsupportedFilter' && item?.invalid_domain)
+    .map((item) => item.invalid_domain);
 };
 
 const getProximoGrupo = () => {
@@ -94,8 +106,38 @@ const fetchNoticias = async ({ apiKey, categoria, pais, query, pagina, signal, f
     resultadosFase1 = dataFase1.results || [];
   } catch (errorFase1) {
     if (errorFase1.name === 'AbortError') throw errorFase1;
-    if (fuenteEspecifica) throw errorFase1;
-    resultadosFase1 = [];
+
+    const dominiosInvalidos = getDominiosInvalidos(errorFase1);
+    if (dominiosInvalidos.length > 0 && !fuenteEspecifica) {
+      const dominiosValidos = domainurl
+        .split(',')
+        .map((item) => item.trim())
+        .filter((item) => item && !dominiosInvalidos.includes(item));
+
+      if (dominiosValidos.length > 0) {
+        try {
+          const urlFase1Reintento = buildRequestUrl({
+            apiKey,
+            categoria,
+            pais,
+            query,
+            pagina,
+            domainurl: dominiosValidos.join(','),
+          });
+          dataFase1 = await fetchNewsData({ url: urlFase1Reintento, signal });
+          resultadosFase1 = dataFase1.results || [];
+        } catch (reintentoError) {
+          if (reintentoError.name === 'AbortError') throw reintentoError;
+          resultadosFase1 = [];
+        }
+      } else {
+        resultadosFase1 = [];
+      }
+    } else if (fuenteEspecifica) {
+      resultadosFase1 = [];
+    } else {
+      resultadosFase1 = [];
+    }
   }
 
   if (fuenteEspecifica) {
