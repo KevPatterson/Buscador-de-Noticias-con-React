@@ -66,6 +66,43 @@ const cleanDom = ($) => {
   });
 };
 
+const walkJson = (value, collector) => {
+  if (Array.isArray(value)) {
+    value.forEach((item) => walkJson(item, collector));
+    return;
+  }
+
+  if (!value || typeof value !== 'object') return;
+
+  const type = String(value['@type'] || '').toLowerCase();
+  const candidate = value.articleBody || value.text;
+
+  if ((type.includes('article') || type.includes('newsarticle')) && typeof candidate === 'string') {
+    const cleaned = normalizeText(candidate);
+    if (cleaned.length > 120) collector.push(cleaned);
+  }
+
+  Object.values(value).forEach((nested) => walkJson(nested, collector));
+};
+
+const extractFromJsonLd = ($) => {
+  const candidates = [];
+
+  $('script[type="application/ld+json"]').each((_, element) => {
+    const raw = $(element).contents().text();
+    if (!raw) return;
+
+    try {
+      const parsed = JSON.parse(raw);
+      walkJson(parsed, candidates);
+    } catch {
+      // Ignorar bloques JSON-LD invalidos.
+    }
+  });
+
+  return candidates.sort((a, b) => b.length - a.length)[0] || '';
+};
+
 const getParagraphsFromNode = ($, node) => {
   const chunks = [];
 
@@ -128,6 +165,7 @@ export default async function handler(req, res) {
       headers: {
         'User-Agent': 'Mozilla/5.0 (compatible; NewsAppScraper/1.0)',
         Accept: 'text/html,application/xhtml+xml',
+        'Accept-Language': 'es-ES,es;q=0.9,en;q=0.8',
       },
     });
 
@@ -135,6 +173,11 @@ export default async function handler(req, res) {
 
     const html = await response.text();
     const $ = cheerio.load(html);
+
+    const fullTextFromJsonLd = extractFromJsonLd($);
+    if (fullTextFromJsonLd) {
+      return res.status(200).json({ fullText: fullTextFromJsonLd });
+    }
 
     cleanDom($);
     const fullText = extractFullText($);

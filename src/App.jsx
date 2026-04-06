@@ -38,11 +38,11 @@ const VISTA_KEY = 'vista_preferida';
 const FUENTE_KEY = 'fuente_preferida';
 
 function App() {
-  const [query, setQuery] = useState('Cuba');
+  const [query, setQuery] = useState('');
   const [categoria, setCategoria] = useState('top');
   const [pais] = useState('cu');
   const [pagina, setPagina] = useState('');
-  const [debouncedQuery, setDebouncedQuery] = useState('Cuba');
+  const [debouncedQuery, setDebouncedQuery] = useState('');
   const [historial, setHistorial] = useState(() => {
     try {
       const guardado = localStorage.getItem(HISTORIAL_KEY);
@@ -240,11 +240,12 @@ function App() {
             const response = await fetch(`/api/scrape?url=${encodedUrl}`);
             const payload = await response.json();
             const scrapedText = cleanDocText(payload?.fullText || '');
+            const isCompleteText = scrapedText.length >= 220;
 
             return {
               ...news,
-              reportText: scrapedText || fallbackText,
-              scraped: Boolean(scrapedText),
+              reportText: isCompleteText ? scrapedText : fallbackText,
+              scraped: isCompleteText,
             };
           } catch {
             return {
