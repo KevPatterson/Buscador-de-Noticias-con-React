@@ -1,5 +1,15 @@
 const API_BASE_URL = 'https://api.thenewsapi.com/v1/news/all';
 
+const MAP_CATEGORIAS_THENEWSAPI = {
+  top: 'general',
+  technology: 'tech',
+};
+
+const mapCategoria = (categoria) => {
+  if (!categoria) return '';
+  return MAP_CATEGORIAS_THENEWSAPI[categoria] || categoria;
+};
+
 const normalizarTheNewsAPI = (items = []) =>
   items.map((item) => ({
     title: item.title || '',
@@ -16,11 +26,13 @@ const normalizarTheNewsAPI = (items = []) =>
   }));
 
 export const fetchTheNewsAPI = async ({ query, categoria, pagina, signal }) => {
+  const categoriaMapeada = mapCategoria(categoria);
+
   const params = new URLSearchParams({
     api_token: import.meta.env.VITE_THENEWSAPI_KEY,
     language: 'es',
     ...(query && { search: query }),
-    ...(categoria && { categories: categoria }),
+    ...(categoriaMapeada && { categories: categoriaMapeada }),
     ...(pagina && { page: pagina }),
   });
 
