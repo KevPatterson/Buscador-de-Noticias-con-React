@@ -42,18 +42,25 @@ const DOC_BLOCKLIST = [
   'personal data processing opt outs',
   'i want to opt-out',
   'resumen de audio (generado por ia)',
+  'published time:',
+  'tiempo de lectura aprox',
   'ultimas entradas',
   'últimas entradas',
   'historias relacionadas',
   'latest stories',
   'previous article',
   'next article',
+  'menu',
+  'menú',
+  'loaderchats',
+  'do not process my data',
   'all rights reserved',
   'todos los derechos reservados',
   'do not sell my data',
   'we use cookies',
   'gracias por compartir',
   'solo disponible en planes de pago',
+  'acceder al contenido multimedia',
 ];
 
 const normalizeForCompare = (value = '') =>
@@ -243,8 +250,28 @@ function App() {
       .replace(/\n{3,}/g, '\n\n')
       .trim();
 
+  const decodeHtmlEntities = (value = '') => {
+    try {
+      const parser = new DOMParser();
+      const doc = parser.parseFromString(value, 'text/html');
+      return doc.documentElement.textContent || value;
+    } catch {
+      return value;
+    }
+  };
+
+  const stripMarkup = (value = '') =>
+    value
+      .replace(/```[\s\S]*?```/g, ' ')
+      .replace(/`[^`]*`/g, ' ')
+      .replace(/!\[[^\]]*\]\([^)]+\)/g, ' ')
+      .replace(/\[([^\]]+)\]\((https?:\/\/[^)]+)\)/g, '$1')
+      .replace(/<a[^>]*>(.*?)<\/a>/gi, '$1')
+      .replace(/<[^>]+>/g, ' ')
+      .replace(/&nbsp;/gi, ' ');
+
   const removeDocBoilerplate = (value = '') => {
-    let text = cleanDocText(value);
+    let text = cleanDocText(decodeHtmlEntities(stripMarkup(value)));
 
     const cutMarkers = [
       'Ultimas entradas',
@@ -279,6 +306,11 @@ function App() {
       const paragraph = cleanDocText(rawParagraph);
       if (!paragraph) return;
 
+      if (/^fuente\s*:/i.test(paragraph)) return;
+      if (/^(https?:\/\/|www\.)/i.test(paragraph)) return;
+      if ((paragraph.match(/https?:\/\//gi) || []).length >= 2) return;
+      if (/^\d{1,2}:\d{2}/.test(paragraph) && paragraph.length < 120) return;
+
       const lower = paragraph.toLowerCase();
       if (DOC_BLOCKLIST.some((entry) => lower.includes(entry))) return;
 
@@ -290,6 +322,19 @@ function App() {
     });
 
     return keptParagraphs.join('\n\n');
+  };
+
+  const isUsefulArticleText = (value = '') => {
+    const text = cleanDocText(value);
+    if (text.length < 220) return false;
+
+    const lower = text.toLowerCase();
+    if (DOC_BLOCKLIST.some((entry) => lower.includes(entry))) return false;
+
+    if ((text.match(/https?:\/\//gi) || []).length > 8) return false;
+    if ((text.match(/<[^>]+>/g) || []).length > 0) return false;
+
+    return true;
   };
 
   const pickFallbackText = (news) => {
@@ -333,7 +378,7 @@ function App() {
             }
             const payload = await response.json();
             const scrapedText = removeDocBoilerplate(payload?.fullText || '');
-            const isCompleteText = scrapedText.length >= 220;
+            const isCompleteText = isUsefulArticleText(scrapedText);
 
             return {
               ...news,
