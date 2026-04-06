@@ -499,18 +499,22 @@ function App() {
           if (!block.trim()) return;
           children.push(
             new Paragraph({
-              text: block,
+              alignment: AlignmentType.JUSTIFIED,
               spacing: { after: 140 },
+              children: [
+                new TextRun({ text: block, font: 'Arial', size: 22 }),
+              ],
             })
           );
         });
 
         children.push(
           new Paragraph({
+            alignment: AlignmentType.JUSTIFIED,
             spacing: { after: 280 },
             children: [
-              new TextRun({ text: 'Fuente: ', bold: true }),
-              new TextRun({ text: sourceUrl, style: 'Hyperlink' }),
+              new TextRun({ text: 'Fuente: ', bold: true, font: 'Arial', size: 22 }),
+              new TextRun({ text: sourceUrl, style: 'Hyperlink', font: 'Arial', size: 22 }),
             ],
           })
         );
