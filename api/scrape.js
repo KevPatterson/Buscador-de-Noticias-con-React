@@ -11,6 +11,89 @@ const normalizeText = (value = '') =>
 
 const clampText = (value = '', max = 10000) => value.slice(0, max);
 
+const BOILERPLATE_START_MARKERS = [
+  'Do Not Process My Personal Information',
+  'Personal Data Processing Opt Outs',
+  'I want to opt-out',
+  'RESUMEN DE AUDIO (GENERADO POR IA)',
+  'Latest stories',
+  'Historias Relacionadas',
+  'Previous article',
+  'Next article',
+  'Ultimas entradas',
+  'Últimas entradas',
+  'All Rights Reserved',
+  'Todos los derechos reservados',
+  'We use cookies',
+  'Do Not Sell My Data',
+  'Gracias por compartir',
+  'UNLOCK ALL',
+  'Sign in',
+];
+
+const normalizeForCompare = (value = '') =>
+  value
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-zA-Z0-9]+/g, ' ')
+    .toLowerCase()
+    .trim();
+
+const dedupeParagraphs = (value = '') => {
+  const seen = new Set();
+  const result = [];
+
+  value.split(/\n{2,}/).forEach((paragraph) => {
+    const cleanParagraph = normalizeText(paragraph);
+    if (!cleanParagraph) return;
+
+    const key = normalizeForCompare(cleanParagraph);
+    if (!key || seen.has(key)) return;
+
+    seen.add(key);
+    result.push(cleanParagraph);
+  });
+
+  return result.join('\n\n');
+};
+
+const stripLeadingBoilerplate = (value = '') => {
+  const lines = value.split('\n');
+  let startIndex = 0;
+
+  for (let i = 0; i < lines.length; i += 1) {
+    const line = lines[i].trim();
+    if (!line) continue;
+
+    const isBoilerplate = BOILERPLATE_START_MARKERS.some((marker) =>
+      line.toLowerCase().includes(marker.toLowerCase())
+    );
+
+    if (isBoilerplate || /^#\s/.test(line) || /^\[.*\]\(https?:\/\//.test(line)) {
+      startIndex = i + 1;
+      continue;
+    }
+
+    break;
+  }
+
+  return lines.slice(startIndex).join('\n');
+};
+
+const cutAtMarker = (value = '', markers = []) => {
+  let cutIndex = -1;
+
+  markers.forEach((marker) => {
+    const idx = value.toLowerCase().indexOf(marker.toLowerCase());
+    if (idx > 0 && (cutIndex === -1 || idx < cutIndex)) {
+      cutIndex = idx;
+    }
+  });
+
+  if (cutIndex > 0) return value.slice(0, cutIndex);
+  return value;
+};
+
 const cleanupProxyText = (targetUrl, rawText = '') => {
   let text = rawText;
 
@@ -32,6 +115,8 @@ const cleanupProxyText = (targetUrl, rawText = '') => {
       return true;
     })
     .join('\n');
+
+  text = stripLeadingBoilerplate(text);
 
   // Limpieza especifica para holanews: recorta a partir de la linea dateline y corta secciones relacionadas.
   let host = '';
@@ -55,19 +140,31 @@ const cleanupProxyText = (targetUrl, rawText = '') => {
       'Subscribe',
       'All Rights Reserved',
     ];
+    text = cutAtMarker(text, endMarkers);
+  }
 
-    for (const marker of endMarkers) {
-      const idx = text.indexOf(marker);
-      if (idx > 0) {
-        text = text.slice(0, idx);
-        break;
-      }
+  if (host.includes('efe.com')) {
+    // EFE suele inyectar consentimiento/cookies y widgets antes/despues del cuerpo.
+    const datelineStart = text.match(/[A-ZÁÉÍÓÚÑa-záéíóúñ\s.'-]+\(EFE\)\.-/);
+    if (datelineStart?.index >= 0) {
+      text = text.slice(datelineStart.index);
     }
+
+    text = cutAtMarker(text, [
+      'Últimas entradas',
+      'Ultimas entradas',
+      'Todos los derechos reservados',
+      'Do Not Sell My Data',
+      'We use cookies',
+      'Gracias por compartir',
+      'Volver arriba',
+    ]);
   }
 
   if (/too many requests|rate-limited/i.test(text)) return '';
 
-  return normalizeText(text);
+  const normalized = normalizeText(text);
+  return dedupeParagraphs(normalized);
 };
 
 const CONTENT_SELECTORS = [
@@ -204,8 +301,8 @@ const extractFullText = ($) => {
   }
 
   const mergedText = normalizeText(paragraphs.join('\n\n'));
-  if (mergedText) return mergedText;
-  return normalizeText(container.text());
+  if (mergedText) return dedupeParagraphs(mergedText);
+  return dedupeParagraphs(normalizeText(container.text()));
 };
 
 const emptyResponse = (res) => res.status(200).json({ fullText: '' });

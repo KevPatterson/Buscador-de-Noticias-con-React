@@ -37,6 +37,32 @@ const HISTORIAL_KEY = 'historial_busquedas';
 const VISTA_KEY = 'vista_preferida';
 const FUENTE_KEY = 'fuente_preferida';
 const SCRAPE_API_BASE = (import.meta.env.VITE_SCRAPE_API_BASE_URL || '').replace(/\/$/, '');
+const DOC_BLOCKLIST = [
+  'do not process my personal information',
+  'personal data processing opt outs',
+  'i want to opt-out',
+  'resumen de audio (generado por ia)',
+  'ultimas entradas',
+  'últimas entradas',
+  'historias relacionadas',
+  'latest stories',
+  'previous article',
+  'next article',
+  'all rights reserved',
+  'todos los derechos reservados',
+  'do not sell my data',
+  'we use cookies',
+  'gracias por compartir',
+  'solo disponible en planes de pago',
+];
+
+const normalizeForCompare = (value = '') =>
+  value
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-zA-Z0-9]+/g, ' ')
+    .toLowerCase()
+    .trim();
 
 function App() {
   const [query, setQuery] = useState('');
@@ -217,6 +243,68 @@ function App() {
       .replace(/\n{3,}/g, '\n\n')
       .trim();
 
+  const removeDocBoilerplate = (value = '') => {
+    let text = cleanDocText(value);
+
+    const cutMarkers = [
+      'Ultimas entradas',
+      'Últimas entradas',
+      'Historias Relacionadas',
+      'Latest stories',
+      'Previous article',
+      'Next article',
+      'All Rights Reserved',
+      'Todos los derechos reservados',
+      'Do Not Sell My Data',
+      'We use cookies',
+      'Gracias por compartir',
+    ];
+
+    let cutIndex = -1;
+    cutMarkers.forEach((marker) => {
+      const index = text.toLowerCase().indexOf(marker.toLowerCase());
+      if (index > 0 && (cutIndex < 0 || index < cutIndex)) {
+        cutIndex = index;
+      }
+    });
+
+    if (cutIndex > 0) {
+      text = text.slice(0, cutIndex);
+    }
+
+    const seen = new Set();
+    const keptParagraphs = [];
+
+    text.split(/\n{2,}/).forEach((rawParagraph) => {
+      const paragraph = cleanDocText(rawParagraph);
+      if (!paragraph) return;
+
+      const lower = paragraph.toLowerCase();
+      if (DOC_BLOCKLIST.some((entry) => lower.includes(entry))) return;
+
+      const key = normalizeForCompare(paragraph);
+      if (!key || seen.has(key)) return;
+
+      seen.add(key);
+      keptParagraphs.push(paragraph);
+    });
+
+    return keptParagraphs.join('\n\n');
+  };
+
+  const pickFallbackText = (news) => {
+    const candidates = [news.content, news.description, news.snippet]
+      .map((item) => removeDocBoilerplate(item || ''))
+      .filter(Boolean);
+
+    if (candidates.length === 0) return 'Sin resumen disponible.';
+
+    const nonPaywall = candidates.filter((value) => !/solo disponible en planes de pago/i.test(value));
+    const source = nonPaywall.length > 0 ? nonPaywall : candidates;
+
+    return source.sort((a, b) => b.length - a.length)[0];
+  };
+
   const handleGenerateReport = async (newsList) => {
     if (!Array.isArray(newsList) || newsList.length === 0) return;
 
@@ -227,7 +315,7 @@ function App() {
       const enrichedNews = await Promise.all(
         newsList.map(async (news) => {
           const encodedUrl = encodeURIComponent(news.link || '');
-          const fallbackText = cleanDocText(news.content || news.description || news.snippet || 'Sin resumen disponible.');
+          const fallbackText = pickFallbackText(news);
 
           if (!encodedUrl) {
             return {
@@ -244,7 +332,7 @@ function App() {
               throw new Error('Endpoint /api/scrape no disponible o respuesta invalida');
             }
             const payload = await response.json();
-            const scrapedText = cleanDocText(payload?.fullText || '');
+            const scrapedText = removeDocBoilerplate(payload?.fullText || '');
             const isCompleteText = scrapedText.length >= 220;
 
             return {
