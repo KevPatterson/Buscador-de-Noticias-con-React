@@ -79,6 +79,11 @@ const ListadoNoticias = ({
                 color: 'warning',
                 tooltip: 'NewsData.io sin creditos disponibles',
             },
+            newsapi: {
+                label: 'NewsAPI.org',
+                color: 'warning',
+                tooltip: 'NewsData.io y TheNewsAPI sin creditos disponibles',
+            },
             rss: {
                 label: 'RSS directo',
                 color: 'error',
