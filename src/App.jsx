@@ -37,6 +37,14 @@ const HISTORIAL_KEY = 'historial_busquedas';
 const VISTA_KEY = 'vista_preferida';
 const FUENTE_KEY = 'fuente_preferida';
 const SCRAPE_API_BASE = (import.meta.env.VITE_SCRAPE_API_BASE_URL || '').replace(/\/$/, '');
+const DEFAULT_REPORT_BLOCKED_DOMAINS = ['news.google.com'];
+const REPORT_BLOCKED_DOMAINS = [
+  ...DEFAULT_REPORT_BLOCKED_DOMAINS,
+  ...(import.meta.env.VITE_REPORT_BLOCKED_DOMAINS || '')
+    .split(',')
+    .map((item) => item.trim().toLowerCase())
+    .filter(Boolean),
+];
 const DOC_BLOCKLIST = [
   'do not process my personal information',
   'personal data processing opt outs',
@@ -61,6 +69,9 @@ const DOC_BLOCKLIST = [
   'gracias por compartir',
   'solo disponible en planes de pago',
   'acceder al contenido multimedia',
+  'pic.twitter.com/',
+  'the post ',
+  'appeared first on',
 ];
 
 const normalizeForCompare = (value = '') =>
@@ -70,6 +81,29 @@ const normalizeForCompare = (value = '') =>
     .replace(/[^a-zA-Z0-9]+/g, ' ')
     .toLowerCase()
     .trim();
+
+const canonicalizeTitle = (value = '') =>
+  normalizeForCompare(value)
+    .replace(/\b(fotos?|foto|video|informe|actualizacion|actualización|post)\b/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+
+const getHostname = (value = '') => {
+  if (!value) return '';
+
+  try {
+    return new URL(value).hostname.toLowerCase();
+  } catch {
+    return '';
+  }
+};
+
+const isBlockedReportDomain = (url = '') => {
+  const host = getHostname(url);
+  if (!host) return false;
+
+  return REPORT_BLOCKED_DOMAINS.some((domain) => host === domain || host.endsWith(`.${domain}`));
+};
 
 function App() {
   const [query, setQuery] = useState('');
@@ -253,8 +287,16 @@ function App() {
   const decodeHtmlEntities = (value = '') => {
     try {
       const parser = new DOMParser();
-      const doc = parser.parseFromString(value, 'text/html');
-      return doc.documentElement.textContent || value;
+      let current = value;
+
+      for (let i = 0; i < 3; i += 1) {
+        const doc = parser.parseFromString(current, 'text/html');
+        const decoded = doc.documentElement.textContent || current;
+        if (decoded === current) break;
+        current = decoded;
+      }
+
+      return current;
     } catch {
       return value;
     }
@@ -310,6 +352,13 @@ function App() {
       if (/^(https?:\/\/|www\.)/i.test(paragraph)) return;
       if ((paragraph.match(/https?:\/\//gi) || []).length >= 2) return;
       if (/^\d{1,2}:\d{2}/.test(paragraph) && paragraph.length < 120) return;
+      if (/^foto\s*:/i.test(paragraph)) return;
+      if (/^image\s*\d*\s*:/i.test(paragraph)) return;
+      if (/^segundos$/i.test(paragraph)) return;
+      if (/^[-—]\s.*\(@[^)]+\).*\d{4}$/i.test(paragraph)) return;
+      if (/pic\.twitter\.com\//i.test(paragraph)) return;
+      if (/\bthe post\b/i.test(paragraph) && /\bappeared first on\b/i.test(paragraph)) return;
+      if (paragraph.includes('Œ')) return;
 
       const lower = paragraph.toLowerCase();
       if (DOC_BLOCKLIST.some((entry) => lower.includes(entry))) return;
@@ -395,6 +444,31 @@ function App() {
         })
       );
 
+      const uniqueNews = [];
+      const seenKeys = new Set();
+
+      enrichedNews.forEach((news) => {
+        const cleanTitle = cleanDocText(decodeHtmlEntities(stripMarkup(news.title || '')));
+        const normalizedTitle = canonicalizeTitle(cleanTitle);
+        const normalizedBodyHead = normalizeForCompare((news.reportText || '').slice(0, 260));
+        const dedupeKey = `${normalizedTitle}|${normalizedBodyHead}`;
+
+        if (!normalizedTitle) return;
+        if (seenKeys.has(dedupeKey)) return;
+
+        seenKeys.add(dedupeKey);
+        uniqueNews.push({
+          ...news,
+          title: cleanTitle || news.title,
+        });
+      });
+
+      const filteredNews = uniqueNews.filter((news) => !isBlockedReportDomain(news.link || ''));
+
+      if (filteredNews.length === 0) {
+        throw new Error('Todas las noticias seleccionadas pertenecen a dominios excluidos del boletin.');
+      }
+
       const children = [
         new Paragraph({
           alignment: AlignmentType.CENTER,
@@ -404,7 +478,7 @@ function App() {
         }),
       ];
 
-      enrichedNews.forEach((news, index) => {
+      filteredNews.forEach((news, index) => {
         const title = news.title || `Noticia ${index + 1}`;
         const content = news.reportText || 'Sin contenido disponible.';
         const sourceUrl = news.link || 'Sin URL de fuente';
