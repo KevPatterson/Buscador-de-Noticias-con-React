@@ -52,7 +52,16 @@ export const fetchNewsAPI = async ({
 
   if (!res.ok || data.status === 'error') {
     const code = data.code || '';
-    if (res.status === 429 || code === 'rateLimited' || code === 'apiKeyExhausted') {
+    if (
+      res.status === 429 ||
+      res.status === 426 ||
+      res.status === 402 ||
+      code === 'rateLimited' ||
+      code === 'apiKeyExhausted' ||
+      code === 'upgradeRequired' ||
+      code === 'planUpgradeRequired' ||
+      code === 'maximumResultsReached'
+    ) {
       throw new Error('QUOTA_EXCEEDED');
     }
 
