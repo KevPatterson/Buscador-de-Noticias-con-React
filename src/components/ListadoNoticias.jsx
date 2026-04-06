@@ -51,6 +51,8 @@ const ListadoNoticias = ({
     isLoadingMore,
     query,
     emptyMessage,
+    selectedNews,
+    onToggleSelect,
 }) => {
     const mostrarSkeletonInicial = loading && noticias.length === 0;
     const sinResultados = !loading && noticias.length === 0 && !error;
@@ -111,7 +113,13 @@ const ListadoNoticias = ({
             {noticias.length > 0 && (
                 <Grid container spacing={2}>
                     {noticias.map((noticia, index) => (
-                        <Noticia key={`${noticia.link || noticia.title}-${index}`} noticia={noticia} vista={vista} />
+                        <Noticia
+                            key={`${noticia.link || noticia.title}-${index}`}
+                            noticia={noticia}
+                            vista={vista}
+                            selectedNews={selectedNews}
+                            onToggleSelect={onToggleSelect}
+                        />
                     ))}
                 </Grid>
             )}

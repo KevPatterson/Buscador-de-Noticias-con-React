@@ -2,6 +2,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import {
     Box,
+    Button,
     Card,
     CardActions,
     CardContent,
@@ -61,7 +62,7 @@ const esImagenSegura = (imageUrl) => {
     }
 };
 
-const Noticia = ({ noticia, vista }) => {
+const Noticia = ({ noticia, vista, selectedNews = [], onToggleSelect }) => {
     const [copiado, setCopiado] = useState(false);
     const [openSnack, setOpenSnack] = useState(false);
     const [errorImagen, setErrorImagen] = useState(false);
@@ -74,6 +75,8 @@ const Noticia = ({ noticia, vista }) => {
     const mostrarImagen = esImagenSegura(imageUrl) && !errorImagen;
     const fecha = formatDate(noticia.pubDate);
     const fuenteCubana = esFuenteCubana(url);
+    const key = noticia.link || noticia.title;
+    const isSelected = selectedNews.some((item) => (item.link || item.title) === key);
 
     useEffect(() => {
         if (!copiado) return;
@@ -91,6 +94,11 @@ const Noticia = ({ noticia, vista }) => {
         } catch {
             setOpenSnack(false);
         }
+    };
+
+    const handleSelectClick = () => {
+        if (!onToggleSelect) return;
+        onToggleSelect(noticia);
     };
 
     if (vista === 'list') {
@@ -132,6 +140,15 @@ const Noticia = ({ noticia, vista }) => {
                             {copiado ? <CheckIcon /> : <ContentCopyIcon />}
                         </IconButton>
                     </Tooltip>
+
+                    <Button
+                        variant={isSelected ? 'contained' : 'outlined'}
+                        color="secondary"
+                        size="small"
+                        onClick={handleSelectClick}
+                    >
+                        {isSelected ? 'Seleccionada' : 'Seleccionar'}
+                    </Button>
                 </Box>
 
                 <Snackbar open={openSnack} autoHideDuration={2000} message="¡Copiado!" onClose={() => setOpenSnack(false)} />
@@ -191,14 +208,25 @@ const Noticia = ({ noticia, vista }) => {
                 </CardContent>
 
                 <CardActions sx={{ justifyContent: 'space-between', px: 2, pb: 2 }}>
-                    <Link href={url} target="_blank" rel="noopener noreferrer" color="secondary" underline="none">
-                        Leer mas
-                    </Link>
-                    <Tooltip title="Copiar titular">
-                        <IconButton color={copiado ? 'success' : 'default'} onClick={handleCopy}>
-                            {copiado ? <CheckIcon /> : <ContentCopyIcon />}
-                        </IconButton>
-                    </Tooltip>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                        <Link href={url} target="_blank" rel="noopener noreferrer" color="secondary" underline="none">
+                            Leer mas
+                        </Link>
+                        <Tooltip title="Copiar titular">
+                            <IconButton color={copiado ? 'success' : 'default'} onClick={handleCopy}>
+                                {copiado ? <CheckIcon /> : <ContentCopyIcon />}
+                            </IconButton>
+                        </Tooltip>
+                    </Box>
+
+                    <Button
+                        variant={isSelected ? 'contained' : 'outlined'}
+                        color="secondary"
+                        size="small"
+                        onClick={handleSelectClick}
+                    >
+                        {isSelected ? 'Seleccionada' : 'Seleccionar'}
+                    </Button>
                 </CardActions>
             </Card>
 

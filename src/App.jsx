@@ -1,5 +1,10 @@
+import Alert from '@mui/material/Alert';
+import Snackbar from '@mui/material/Snackbar';
 import { Container, Typography } from '@mui/material';
+import { saveAs } from 'file-saver';
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { Document, HeadingLevel, Packer, Paragraph, TextRun, AlignmentType } from 'docx';
+import FloatingCart from './components/FloatingCart.jsx';
 import Formulario from './components/Formulario.jsx';
 import ListadoNoticias from './components/ListadoNoticias.jsx';
 import { NOMBRES_FUENTES } from './config/fuentes';
@@ -48,6 +53,9 @@ function App() {
   });
   const [vista, setVista] = useState(() => localStorage.getItem(VISTA_KEY) || 'grid');
   const [fuenteEspecifica, setFuenteEspecifica] = useState(() => localStorage.getItem(FUENTE_KEY) || null);
+  const [selectedNews, setSelectedNews] = useState([]);
+  const [isGeneratingReport, setIsGeneratingReport] = useState(false);
+  const [reportError, setReportError] = useState('');
   const sentinelRef = useRef(null);
 
   const fuenteRSS = useMemo(
@@ -187,6 +195,130 @@ function App() {
     refetchNewsData();
   };
 
+  const toggleNewsSelection = (newsItem) => {
+    const itemKey = newsItem.link || newsItem.title;
+    if (!itemKey) return;
+
+    setSelectedNews((current) => {
+      const exists = current.some((item) => (item.link || item.title) === itemKey);
+      if (exists) {
+        return current.filter((item) => (item.link || item.title) !== itemKey);
+      }
+
+      return [...current, newsItem];
+    });
+  };
+
+  const cleanDocText = (value = '') =>
+    value
+      .replace(/\s+/g, ' ')
+      .replace(/\u00a0/g, ' ')
+      .trim();
+
+  const handleGenerateReport = async (newsList) => {
+    if (!Array.isArray(newsList) || newsList.length === 0) return;
+
+    setIsGeneratingReport(true);
+    setReportError('');
+
+    try {
+      const enrichedNews = await Promise.all(
+        newsList.map(async (news) => {
+          const encodedUrl = encodeURIComponent(news.link || '');
+          const fallbackText = cleanDocText(news.description || news.snippet || 'Sin resumen disponible.');
+
+          if (!encodedUrl) {
+            return {
+              ...news,
+              reportText: fallbackText,
+              scraped: false,
+            };
+          }
+
+          try {
+            const response = await fetch(`/api/scrape?url=${encodedUrl}`);
+            const payload = await response.json();
+            const scrapedText = cleanDocText(payload?.text || '');
+
+            return {
+              ...news,
+              reportText: payload?.scraped && scrapedText ? scrapedText : fallbackText,
+              scraped: Boolean(payload?.scraped && scrapedText),
+            };
+          } catch {
+            return {
+              ...news,
+              reportText: fallbackText,
+              scraped: false,
+            };
+          }
+        })
+      );
+
+      const children = [
+        new Paragraph({
+          alignment: AlignmentType.CENTER,
+          heading: HeadingLevel.TITLE,
+          spacing: { after: 420 },
+          children: [new TextRun({ text: 'Boletin de Noticias', bold: true })],
+        }),
+      ];
+
+      enrichedNews.forEach((news, index) => {
+        const title = news.title || `Noticia ${index + 1}`;
+        const content = news.reportText || 'Sin contenido disponible.';
+        const sourceUrl = news.link || 'Sin URL de fuente';
+
+        children.push(
+          new Paragraph({
+            text: title,
+            heading: HeadingLevel.HEADING_1,
+            spacing: { before: 240, after: 140 },
+          })
+        );
+
+        content.split(/\n{2,}/).forEach((block) => {
+          if (!block.trim()) return;
+          children.push(
+            new Paragraph({
+              text: block,
+              spacing: { after: 140 },
+            })
+          );
+        });
+
+        children.push(
+          new Paragraph({
+            spacing: { after: 280 },
+            children: [
+              new TextRun({ text: 'Fuente: ', bold: true }),
+              new TextRun({ text: sourceUrl, style: 'Hyperlink' }),
+            ],
+          })
+        );
+      });
+
+      const doc = new Document({
+        sections: [
+          {
+            properties: {},
+            children,
+          },
+        ],
+      });
+
+      const blob = await Packer.toBlob(doc);
+      saveAs(blob, 'Boletin_Noticias.docx');
+    } catch (error) {
+      const message = error?.message || 'No se pudo generar el documento.';
+      setReportError(message);
+      console.error('Error al generar boletin:', error);
+      alert('No se pudo generar el boletin de noticias. Intenta nuevamente.');
+    } finally {
+      setIsGeneratingReport(false);
+    }
+  };
+
   const nombreFuenteSeleccionada = NOMBRES_FUENTES[fuenteEspecifica] || fuenteEspecifica;
   const mensajeSinResultados = usarRSS && feedNoDisponible
     ? `La fuente ${nombreFuenteSeleccionada} esta temporalmente no disponible. ${feedMensaje || 'Intenta mas tarde.'}`
@@ -243,7 +375,21 @@ function App() {
         hasMore={hasMoreActivo}
         query={query}
         emptyMessage={mensajeSinResultados}
+        selectedNews={selectedNews}
+        onToggleSelect={toggleNewsSelection}
       />
+
+      <FloatingCart
+        selectedCount={selectedNews.length}
+        isLoading={isGeneratingReport}
+        onGenerate={() => handleGenerateReport(selectedNews)}
+      />
+
+      <Snackbar open={Boolean(reportError)} autoHideDuration={3500} onClose={() => setReportError('')}>
+        <Alert severity="error" onClose={() => setReportError('')} sx={{ width: '100%' }}>
+          {reportError}
+        </Alert>
+      </Snackbar>
     </Container>
   );
 }
