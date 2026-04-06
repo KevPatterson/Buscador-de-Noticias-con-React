@@ -1,7 +1,18 @@
 import { FUENTES_RSS } from '../config/fuentes-rss';
 
-export const fetchRSSFallback = async ({ query, signal }) => {
-  const promesas = FUENTES_RSS.map((fuente) =>
+const parseDominios = (domainurl = '') =>
+  domainurl
+    .split(',')
+    .map((item) => item.trim().toLowerCase())
+    .filter(Boolean);
+
+export const fetchRSSFallback = async ({ query, domainurl, signal }) => {
+  const dominios = parseDominios(domainurl);
+  const fuentesObjetivo = dominios.length
+    ? FUENTES_RSS.filter((fuente) => dominios.includes(fuente.dominio.toLowerCase()))
+    : FUENTES_RSS;
+
+  const promesas = fuentesObjetivo.map((fuente) =>
     fetch(`/api/rss?feed=${encodeURIComponent(fuente.feed)}`, { signal })
       .then((r) => r.json())
       .then((d) => d.results || [])

@@ -19,6 +19,8 @@ const bloquearPor1Hora = (key) => {
   localStorage.setItem(key, String(Date.now() + BLOQUEO_DURACION_MS));
 };
 
+const tieneResultados = (resultados) => Array.isArray(resultados) && resultados.length > 0;
+
 export const fetchConFallback = async (params) => {
   const newsDataKey = import.meta.env.VITE_NEWSDATA_API_KEY;
   const theNewsApiKey = import.meta.env.VITE_THENEWSAPI_KEY;
@@ -27,7 +29,9 @@ export const fetchConFallback = async (params) => {
   if (newsDataKey && !estaBloqueado(NEWSDATA_BLOQUEADO_KEY)) {
     try {
       const { resultados, nextPage, totalResults } = await fetchNewsData(params);
-      return { resultados, fuente: 'newsdata', nextPage, totalResults };
+      if (tieneResultados(resultados)) {
+        return { resultados, fuente: 'newsdata', nextPage, totalResults };
+      }
     } catch (err) {
       if (err.message === 'QUOTA_EXCEEDED') {
         bloquearPor1Hora(NEWSDATA_BLOQUEADO_KEY);
@@ -41,11 +45,13 @@ export const fetchConFallback = async (params) => {
   if (theNewsApiKey && !estaBloqueado(THENEWSAPI_BLOQUEADO_KEY)) {
     try {
       const { resultados, nextPage, totalResults } = await fetchTheNewsAPI(params);
-      return { resultados, fuente: 'thenewsapi', nextPage, totalResults };
+      if (tieneResultados(resultados)) {
+        return { resultados, fuente: 'thenewsapi', nextPage, totalResults };
+      }
     } catch (err) {
       if (err.message === 'QUOTA_EXCEEDED') {
         bloquearPor1Hora(THENEWSAPI_BLOQUEADO_KEY);
-        console.warn('TheNewsAPI sin creditos. Cambiando a RSS...');
+        console.warn('TheNewsAPI sin creditos. Cambiando a NewsAPI.org...');
       } else {
         throw err;
       }
@@ -55,7 +61,9 @@ export const fetchConFallback = async (params) => {
   if (newsApiKey && !estaBloqueado(NEWSAPI_BLOQUEADO_KEY)) {
     try {
       const { resultados, nextPage, totalResults } = await fetchNewsAPI(params);
-      return { resultados, fuente: 'newsapi', nextPage, totalResults };
+      if (tieneResultados(resultados)) {
+        return { resultados, fuente: 'newsapi', nextPage, totalResults };
+      }
     } catch (err) {
       if (err.message === 'QUOTA_EXCEEDED') {
         bloquearPor1Hora(NEWSAPI_BLOQUEADO_KEY);
