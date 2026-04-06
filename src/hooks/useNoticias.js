@@ -21,6 +21,8 @@ const normalizeNews = (results = []) =>
   results.map((item) => ({
     title: item.title,
     description: item.description,
+    content: item.content,
+    snippet: item.snippet,
     image_url: item.image_url,
     link: item.link,
     source_id: item.source_id,

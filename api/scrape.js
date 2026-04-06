@@ -11,6 +11,65 @@ const normalizeText = (value = '') =>
 
 const clampText = (value = '', max = 10000) => value.slice(0, max);
 
+const cleanupProxyText = (targetUrl, rawText = '') => {
+  let text = rawText;
+
+  // Quita cabecera tipica de r.jina.ai
+  text = text
+    .replace(/(^|\n)Title:\s.*?(\n|$)/g, '\n')
+    .replace(/(^|\n)URL Source:\s.*?(\n|$)/g, '\n')
+    .replace(/(^|\n)Warning:\s.*?(\n|$)/g, '\n')
+    .replace(/(^|\n)Markdown Content:\s*(\n|$)/g, '\n');
+
+  // Quita lineas de menu/listado que empiezan con bullets markdown
+  text = text
+    .split('\n')
+    .filter((line) => {
+      const trimmed = line.trim();
+      if (!trimmed) return true;
+      if (/^\*\s+\[/.test(trimmed)) return false;
+      if (/^\[[^\]]+\]\(https?:\/\//.test(trimmed)) return false;
+      return true;
+    })
+    .join('\n');
+
+  // Limpieza especifica para holanews: recorta a partir de la linea dateline y corta secciones relacionadas.
+  let host = '';
+  try {
+    host = new URL(targetUrl).hostname.toLowerCase();
+  } catch {
+    host = '';
+  }
+
+  if (host.includes('holanews.com')) {
+    const startMatch = text.match(/[A-ZÁÉÍÓÚÑ][^\n]{2,},\s*\d{1,2}\s+[A-Za-záéíóúñ]+\s*\(EFE\)\.-/i);
+    if (startMatch?.index >= 0) {
+      text = text.slice(startMatch.index);
+    }
+
+    const endMarkers = [
+      'Previous article',
+      'Next article',
+      'Historias Relacionadas',
+      'Latest stories',
+      'Subscribe',
+      'All Rights Reserved',
+    ];
+
+    for (const marker of endMarkers) {
+      const idx = text.indexOf(marker);
+      if (idx > 0) {
+        text = text.slice(0, idx);
+        break;
+      }
+    }
+  }
+
+  if (/too many requests|rate-limited/i.test(text)) return '';
+
+  return normalizeText(text);
+};
+
 const CONTENT_SELECTORS = [
   'article',
   '.main-content',
@@ -163,7 +222,8 @@ const extractUsingReadableProxy = async (targetUrl) => {
     });
 
     if (!response.ok) return '';
-    const plainText = normalizeText(await response.text());
+    const rawText = await response.text();
+    const plainText = cleanupProxyText(targetUrl, rawText);
     return plainText.length >= 220 ? plainText : '';
   } catch {
     return '';
@@ -192,7 +252,13 @@ export default async function handler(req, res) {
       },
     });
 
-    if (!response.ok) return emptyResponse(res);
+    if (!response.ok) {
+      const fullTextFromProxyOnError = await extractUsingReadableProxy(targetUrl);
+      if (fullTextFromProxyOnError) {
+        return res.status(200).json({ fullText: clampText(fullTextFromProxyOnError) });
+      }
+      return emptyResponse(res);
+    }
 
     const html = await response.text();
     const $ = cheerio.load(html);

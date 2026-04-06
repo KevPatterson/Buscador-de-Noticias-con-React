@@ -227,7 +227,7 @@ function App() {
       const enrichedNews = await Promise.all(
         newsList.map(async (news) => {
           const encodedUrl = encodeURIComponent(news.link || '');
-          const fallbackText = cleanDocText(news.description || news.snippet || 'Sin resumen disponible.');
+          const fallbackText = cleanDocText(news.content || news.description || news.snippet || 'Sin resumen disponible.');
 
           if (!encodedUrl) {
             return {
