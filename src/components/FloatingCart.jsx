@@ -3,8 +3,10 @@ import Badge from '@mui/material/Badge';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
 import CircularProgress from '@mui/material/CircularProgress';
+import IconButton from '@mui/material/IconButton';
 import Paper from '@mui/material/Paper';
 import SvgIcon from '@mui/material/SvgIcon';
+import Tooltip from '@mui/material/Tooltip';
 import Typography from '@mui/material/Typography';
 
 const ArticleIcon = (props) => (
@@ -19,7 +21,13 @@ const DownloadIcon = (props) => (
   </SvgIcon>
 );
 
-const FloatingCart = ({ selectedCount, isLoading, onGenerate }) => {
+const CloseIcon = (props) => (
+  <SvgIcon {...props}>
+    <path d="m18.3 5.71-1.41-1.41L12 9.17 7.11 4.3 5.7 5.71 10.59 10.6 5.7 15.49l1.41 1.41L12 12.01l4.89 4.89 1.41-1.41-4.89-4.89z" />
+  </SvgIcon>
+);
+
+const FloatingCart = ({ selectedCount, isLoading, onGenerate, onClearSelection }) => {
   if (selectedCount <= 0) return null;
 
   return (
@@ -49,16 +57,33 @@ const FloatingCart = ({ selectedCount, isLoading, onGenerate }) => {
           </Typography>
         </Box>
 
-        <Button
-          variant="contained"
-          color="secondary"
-          startIcon={isLoading ? <CircularProgress size={16} color="inherit" /> : <DownloadIcon />}
-          onClick={onGenerate}
-          disabled={isLoading || selectedCount === 0}
-          sx={{ whiteSpace: 'nowrap', px: 1.8 }}
-        >
-          {isLoading ? 'Generando...' : 'Generar Boletin en Word'}
-        </Button>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.6 }}>
+          <Button
+            variant="contained"
+            color="secondary"
+            startIcon={isLoading ? <CircularProgress size={16} color="inherit" /> : <DownloadIcon />}
+            onClick={onGenerate}
+            disabled={isLoading || selectedCount === 0}
+            sx={{ whiteSpace: 'nowrap', px: 1.8 }}
+          >
+            {isLoading ? 'Generando...' : 'Generar Boletin en Word'}
+          </Button>
+
+          <Tooltip title="Descartar seleccionadas">
+            <span>
+              <IconButton
+                color="error"
+                aria-label="Descartar todas las noticias seleccionadas"
+                onClick={onClearSelection}
+                disabled={isLoading || selectedCount === 0}
+                size="small"
+                sx={{ border: '1px solid', borderColor: 'rgba(200, 85, 61, 0.35)' }}
+              >
+                <CloseIcon fontSize="small" />
+              </IconButton>
+            </span>
+          </Tooltip>
+        </Box>
       </Box>
     </Paper>
   );

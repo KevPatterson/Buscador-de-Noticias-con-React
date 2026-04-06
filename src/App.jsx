@@ -281,6 +281,10 @@ function App() {
     });
   };
 
+  const clearSelectedNews = () => {
+    setSelectedNews([]);
+  };
+
   const cleanDocText = (value = '') =>
     value
       .replace(/\u00a0/g, ' ')
@@ -628,6 +632,7 @@ function App() {
         selectedCount={selectedNews.length}
         isLoading={isGeneratingReport}
         onGenerate={() => handleGenerateReport(selectedNews)}
+        onClearSelection={clearSelectedNews}
       />
 
       <Snackbar open={Boolean(reportError)} autoHideDuration={3500} onClose={() => setReportError('')}>
