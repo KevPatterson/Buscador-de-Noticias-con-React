@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { GRUPOS_DOMINIOS } from '../config/fuentes';
+import { fetchConFallback } from '../services/fetchConFallback';
 
-const API_BASE_URL = 'https://newsdata.io/api/1/news';
 const UMBRAL_RESULTADOS_PREFERIDOS = 5;
 
 const buildBaseKey = ({ query, categoria, pais }) =>
@@ -40,44 +40,6 @@ const dedupeByLink = (results = []) => {
   return Array.from(mapa.values());
 };
 
-const buildRequestUrl = ({
-  apiKey,
-  categoria,
-  pais,
-  query,
-  pagina,
-  domainurl,
-  includeCountry = true,
-  includeCategory = true,
-}) => {
-  const queryParams = new URLSearchParams({
-    apikey: apiKey,
-    language: 'es',
-  });
-
-  if (includeCategory && categoria) queryParams.set('category', categoria);
-  if (includeCountry && pais) queryParams.set('country', pais);
-  if (query.length >= 2) queryParams.set('q', query);
-  if (pagina) queryParams.set('page', pagina);
-  if (domainurl) queryParams.set('domainurl', domainurl);
-
-  return `${API_BASE_URL}?${queryParams.toString()}`;
-};
-
-const fetchNewsData = async ({ url, signal }) => {
-  const response = await fetch(url, { signal });
-  const data = await response.json();
-
-  if (!response.ok || data.status === 'error') {
-    const requestError = new Error(data.results?.message || 'No se pudo obtener noticias.');
-    requestError.status = response.status;
-    requestError.results = data.results;
-    throw requestError;
-  }
-
-  return data;
-};
-
 const getDominiosInvalidos = (requestError) => {
   if (requestError?.status !== 422) return [];
   if (!Array.isArray(requestError.results)) return [];
@@ -98,8 +60,33 @@ const getProximoGrupo = () => {
   return GRUPOS_DOMINIOS[proximo];
 };
 
-const fetchNoticias = async ({ apiKey, categoria, pais, query, pagina, signal, fuenteEspecifica }) => {
+const fetchNoticias = async ({ categoria, pais, query, pagina, signal, fuenteEspecifica }) => {
   let domainurl;
+
+  const consultarConFallback = async ({
+    queryValue,
+    domainurlValue,
+    includeCountry = true,
+    includeCategory = true,
+  }) => {
+    const { resultados, fuente, nextPage, totalResults } = await fetchConFallback({
+      query: queryValue,
+      categoria,
+      pagina,
+      domainurl: domainurlValue,
+      pais,
+      includeCountry,
+      includeCategory,
+      signal,
+    });
+
+    return {
+      results: resultados || [],
+      nextPage: nextPage || null,
+      totalResults: typeof totalResults === 'number' ? totalResults : (resultados || []).length,
+      _fuenteActiva: fuente,
+    };
+  };
 
   if (fuenteEspecifica) {
     domainurl = fuenteEspecifica;
@@ -109,8 +96,7 @@ const fetchNoticias = async ({ apiKey, categoria, pais, query, pagina, signal, f
   }
 
   if (!domainurl) {
-    const urlSinDominio = buildRequestUrl({ apiKey, categoria, pais, query, pagina });
-    const dataSinDominio = await fetchNewsData({ url: urlSinDominio, signal });
+    const dataSinDominio = await consultarConFallback({ queryValue: query });
     return {
       ...dataSinDominio,
       results: dataSinDominio.results || [],
@@ -122,31 +108,21 @@ const fetchNoticias = async ({ apiKey, categoria, pais, query, pagina, signal, f
   let resultadosFase1 = [];
 
   try {
-    const urlFase1 = buildRequestUrl({
-      apiKey,
-      categoria,
-      pais,
-      query,
-      pagina,
-      domainurl,
+    dataFase1 = await consultarConFallback({
+      queryValue: query,
+      domainurlValue: domainurl,
       includeCountry: !fuenteEspecifica,
       includeCategory: !fuenteEspecifica,
     });
-    dataFase1 = await fetchNewsData({ url: urlFase1, signal });
     resultadosFase1 = dataFase1.results || [];
 
     if (fuenteEspecifica && resultadosFase1.length === 0 && query.length >= 2) {
-      const urlSinQuery = buildRequestUrl({
-        apiKey,
-        categoria,
-        pais,
-        query: '',
-        pagina,
-        domainurl,
+      dataFase1 = await consultarConFallback({
+        queryValue: '',
+        domainurlValue: domainurl,
         includeCountry: false,
         includeCategory: false,
       });
-      dataFase1 = await fetchNewsData({ url: urlSinQuery, signal });
       resultadosFase1 = dataFase1.results || [];
     }
   } catch (errorFase1) {
@@ -161,15 +137,10 @@ const fetchNoticias = async ({ apiKey, categoria, pais, query, pagina, signal, f
 
       if (dominiosValidos.length > 0) {
         try {
-          const urlFase1Reintento = buildRequestUrl({
-            apiKey,
-            categoria,
-            pais,
-            query,
-            pagina,
-            domainurl: dominiosValidos.join(','),
+          dataFase1 = await consultarConFallback({
+            queryValue: query,
+            domainurlValue: dominiosValidos.join(','),
           });
-          dataFase1 = await fetchNewsData({ url: urlFase1Reintento, signal });
           resultadosFase1 = dataFase1.results || [];
         } catch (reintentoError) {
           if (reintentoError.name === 'AbortError') throw reintentoError;
@@ -201,8 +172,7 @@ const fetchNoticias = async ({ apiKey, categoria, pais, query, pagina, signal, f
     };
   }
 
-  const urlFase2 = buildRequestUrl({ apiKey, categoria, pais, query, pagina });
-  const dataFase2 = await fetchNewsData({ url: urlFase2, signal });
+  const dataFase2 = await consultarConFallback({ queryValue: query });
   const resultadosFase2 = dataFase2.results || [];
   const combinados = dedupeByLink([...resultadosFase1, ...resultadosFase2]);
 
@@ -223,6 +193,7 @@ const useNoticias = (params) => {
   const [nextPage, setNextPage] = useState(null);
   const [hasMore, setHasMore] = useState(true);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
+  const [fuenteActiva, setFuenteActiva] = useState('newsdata');
   const [retryTick, setRetryTick] = useState(0);
   const [debouncedQuery, setDebouncedQuery] = useState(query);
 
@@ -248,16 +219,7 @@ const useNoticias = (params) => {
   );
 
   useEffect(() => {
-    const apiKey = import.meta.env.VITE_NEWSDATA_API_KEY;
     const queryTrim = debouncedQuery.trim();
-
-    if (!apiKey) {
-      setError('Falta la variable VITE_NEWSDATA_API_KEY');
-      setLoading(false);
-      setIsLoadingMore(false);
-      setHasMore(false);
-      return;
-    }
 
     if (queryTrim.length === 1) {
       setNoticias([]);
@@ -291,7 +253,6 @@ const useNoticias = (params) => {
     const consultarApi = async () => {
       try {
         const data = await fetchNoticias({
-          apiKey,
           categoria,
           pais,
           query: queryTrim,
@@ -320,6 +281,7 @@ const useNoticias = (params) => {
         setTotalResults(total);
         setHasMore(tieneMas);
         setNextPage(paginaSiguiente);
+        setFuenteActiva(data._fuenteActiva || 'newsdata');
         setError('');
 
         const snapshot = {
@@ -369,6 +331,7 @@ const useNoticias = (params) => {
     noticias,
     loading,
     error,
+    fuenteActiva,
     totalResults,
     nextPage,
     hasMore,

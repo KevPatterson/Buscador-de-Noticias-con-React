@@ -1,0 +1,54 @@
+import { fetchNewsData } from './newsdata';
+import { fetchRSSFallback } from './rss';
+import { fetchTheNewsAPI } from './thenewsapi';
+
+const NEWSDATA_BLOQUEADO_KEY = 'newsdata_bloqueado_hasta';
+const THENEWSAPI_BLOQUEADO_KEY = 'thenewsapi_bloqueado_hasta';
+const BLOQUEO_DURACION_MS = 60 * 60 * 1000;
+
+const estaBloqueado = (key) => {
+  const hasta = localStorage.getItem(key);
+  if (!hasta) return false;
+
+  return Date.now() < Number.parseInt(hasta, 10);
+};
+
+const bloquearPor1Hora = (key) => {
+  localStorage.setItem(key, String(Date.now() + BLOQUEO_DURACION_MS));
+};
+
+export const fetchConFallback = async (params) => {
+  const newsDataKey = import.meta.env.VITE_NEWSDATA_API_KEY;
+  const theNewsApiKey = import.meta.env.VITE_THENEWSAPI_KEY;
+
+  if (newsDataKey && !estaBloqueado(NEWSDATA_BLOQUEADO_KEY)) {
+    try {
+      const { resultados, nextPage, totalResults } = await fetchNewsData(params);
+      return { resultados, fuente: 'newsdata', nextPage, totalResults };
+    } catch (err) {
+      if (err.message === 'QUOTA_EXCEEDED') {
+        bloquearPor1Hora(NEWSDATA_BLOQUEADO_KEY);
+        console.warn('NewsData.io sin creditos. Cambiando a TheNewsAPI...');
+      } else {
+        throw err;
+      }
+    }
+  }
+
+  if (theNewsApiKey && !estaBloqueado(THENEWSAPI_BLOQUEADO_KEY)) {
+    try {
+      const { resultados, nextPage, totalResults } = await fetchTheNewsAPI(params);
+      return { resultados, fuente: 'thenewsapi', nextPage, totalResults };
+    } catch (err) {
+      if (err.message === 'QUOTA_EXCEEDED') {
+        bloquearPor1Hora(THENEWSAPI_BLOQUEADO_KEY);
+        console.warn('TheNewsAPI sin creditos. Cambiando a RSS...');
+      } else {
+        throw err;
+      }
+    }
+  }
+
+  const resultados = await fetchRSSFallback(params);
+  return { resultados, fuente: 'rss', nextPage: null, totalResults: resultados.length };
+};

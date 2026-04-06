@@ -2,10 +2,12 @@
 import Alert from '@mui/material/Alert';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
+import Chip from '@mui/material/Chip';
 import CircularProgress from '@mui/material/CircularProgress';
 import Grid from '@mui/material/Grid';
 import Skeleton from '@mui/material/Skeleton';
 import SvgIcon from '@mui/material/SvgIcon';
+import Tooltip from '@mui/material/Tooltip';
 import Typography from '@mui/material/Typography';
 import Noticia from './Noticia';
 
@@ -62,14 +64,40 @@ const ListadoNoticias = ({
     isLoadingMore,
     query,
     emptyMessage,
+      fuenteActiva,
     selectedNews,
     onToggleSelect,
 }) => {
+        const sourceChipConfig = {
+            newsdata: {
+                label: 'NewsData.io',
+                color: 'primary',
+                tooltip: '',
+            },
+            thenewsapi: {
+                label: 'TheNewsAPI',
+                color: 'warning',
+                tooltip: 'NewsData.io sin creditos disponibles',
+            },
+            rss: {
+                label: 'RSS directo',
+                color: 'error',
+                tooltip: 'APIs sin creditos. Mostrando feeds RSS directos.',
+            },
+        };
+
+        const chipInfo = sourceChipConfig[fuenteActiva] || sourceChipConfig.newsdata;
     const mostrarSkeletonInicial = loading && noticias.length === 0;
     const sinResultados = !loading && noticias.length === 0 && !error;
 
     return (
         <>
+                <Box sx={{ display: 'flex', justifyContent: 'flex-end', mb: 1 }}>
+                    <Tooltip title={chipInfo.tooltip} disableHoverListener={!chipInfo.tooltip}>
+                        <Chip label={chipInfo.label} color={chipInfo.color} size="small" />
+                    </Tooltip>
+                </Box>
+
             <Typography textAlign="center" marginY={4} variant="h4" component="h2" color="secondary">
                 <Box component="span" className="section-title">
                     Ultimas Noticias

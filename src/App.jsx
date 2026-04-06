@@ -146,6 +146,7 @@ function App() {
     noticias: noticiasNewsData,
     loading: loadingNewsData,
     error: errorNewsData,
+    fuenteActiva: fuenteActivaNewsData,
     totalResults: totalResultsNewsData,
     nextPage,
     hasMore,
@@ -175,6 +176,7 @@ function App() {
   const loading = usarRSS ? loadingRSS : loadingNewsData;
   const error = usarRSS ? errorRSS : errorNewsData;
   const totalResults = usarRSS ? noticiasRSS.length : totalResultsNewsData;
+  const fuenteActiva = usarRSS ? 'rss' : fuenteActivaNewsData;
   const nextPageActivo = usarRSS ? null : nextPage;
   const hasMoreActivo = usarRSS ? false : hasMore;
   const isLoadingMoreActivo = usarRSS ? false : isLoadingMore;
@@ -612,6 +614,7 @@ function App() {
           hasMore={hasMoreActivo}
           query={query}
           emptyMessage={mensajeSinResultados}
+          fuenteActiva={fuenteActiva}
           selectedNews={selectedNews}
           onToggleSelect={toggleNewsSelection}
         />
