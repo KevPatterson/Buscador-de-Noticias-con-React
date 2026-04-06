@@ -211,8 +211,9 @@ function App() {
 
   const cleanDocText = (value = '') =>
     value
-      .replace(/\s+/g, ' ')
       .replace(/\u00a0/g, ' ')
+      .replace(/[ \t]+/g, ' ')
+      .replace(/\n{3,}/g, '\n\n')
       .trim();
 
   const handleGenerateReport = async (newsList) => {
@@ -238,12 +239,12 @@ function App() {
           try {
             const response = await fetch(`/api/scrape?url=${encodedUrl}`);
             const payload = await response.json();
-            const scrapedText = cleanDocText(payload?.text || '');
+            const scrapedText = cleanDocText(payload?.fullText || '');
 
             return {
               ...news,
-              reportText: payload?.scraped && scrapedText ? scrapedText : fallbackText,
-              scraped: Boolean(payload?.scraped && scrapedText),
+              reportText: scrapedText || fallbackText,
+              scraped: Boolean(scrapedText),
             };
           } catch {
             return {

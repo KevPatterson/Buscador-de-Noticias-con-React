@@ -4,56 +4,120 @@ const asSingleValue = (value) => (Array.isArray(value) ? value[0] : value);
 
 const normalizeText = (value = '') =>
   value
-    .replace(/\s+/g, ' ')
     .replace(/\u00a0/g, ' ')
+    .replace(/[ \t]+/g, ' ')
+    .replace(/\n{3,}/g, '\n\n')
     .trim();
 
-const collectParagraphs = ($root) => {
+const CONTENT_SELECTORS = [
+  'article',
+  '.post-content',
+  '.entry-content',
+  '[itemprop="articleBody"]',
+  '.article-content',
+  '.news-content',
+  '.story-body',
+  'main article',
+];
+
+const NOISE_SELECTORS = [
+  'script',
+  'style',
+  'noscript',
+  'iframe',
+  'svg',
+  'canvas',
+  'nav',
+  'header',
+  'footer',
+  'aside',
+  'form',
+  'menu',
+  '[role="navigation"]',
+  '.menu',
+  '.nav',
+  '.navbar',
+  '.header',
+  '.footer',
+  '.breadcrumbs',
+  '.share',
+  '.social',
+  '.related',
+  '.comments',
+  '.comment',
+  '.popup',
+  '.modal',
+  '.ads',
+  '.ad',
+  '.advertisement',
+  '.sponsored',
+  '.promo',
+  '.cookie',
+  '[id*="ad-"]',
+  '[class*=" ad-"]',
+  '[class*="ads"]',
+  '[class*="banner"]',
+  '[class*="sponsor"]',
+];
+
+const cleanDom = ($) => {
+  NOISE_SELECTORS.forEach((selector) => {
+    $(selector).remove();
+  });
+};
+
+const getParagraphsFromNode = ($, node) => {
   const chunks = [];
 
-  $root.find('p').each((_, element) => {
-    const paragraph = normalizeText(cheerio.load(element).text());
-    if (paragraph.length >= 35) chunks.push(paragraph);
+  node.find('p').each((_, element) => {
+    const paragraph = normalizeText($(element).text());
+    if (paragraph.length >= 40) chunks.push(paragraph);
   });
 
-  return chunks.join('\n\n');
+  return chunks;
 };
 
-const extractFromArticle = ($) => {
-  let bestText = '';
+const getMainContainer = ($) => {
+  for (const selector of CONTENT_SELECTORS) {
+    const candidate = $(selector).first();
+    if (!candidate.length) continue;
 
-  $('article').each((_, element) => {
-    const articleText = collectParagraphs($(element));
-    if (articleText.length > bestText.length) bestText = articleText;
-  });
+    const paragraphs = getParagraphsFromNode($, candidate);
+    if (paragraphs.length >= 2) return candidate;
+  }
 
-  return bestText;
+  const body = $('body').first();
+  return body.length ? body : $.root();
 };
 
-const extractFallbackParagraphs = ($) => collectParagraphs($.root());
+const extractFullText = ($) => {
+  const container = getMainContainer($);
+  let paragraphs = getParagraphsFromNode($, container);
 
-const jsonScrapeFailed = (res, message, extra = {}) =>
-  res.status(200).json({
-    status: 'ok',
-    scraped: false,
-    message,
-    text: '',
-    ...extra,
-  });
+  if (paragraphs.length === 0) {
+    paragraphs = getParagraphsFromNode($, $('body'));
+  }
+
+  if (paragraphs.length === 0) {
+    return normalizeText(container.text());
+  }
+
+  return normalizeText(paragraphs.join('\n\n'));
+};
+
+const emptyResponse = (res) => res.status(200).json({ fullText: '' });
 
 export default async function handler(req, res) {
   const urlParam = asSingleValue(req.query.url);
 
-  if (!urlParam) {
-    return jsonScrapeFailed(res, 'Falta parametro url');
-  }
+  if (!urlParam) return emptyResponse(res);
 
   let targetUrl;
   try {
     targetUrl = decodeURIComponent(urlParam);
     new URL(targetUrl);
   } catch {
-    return jsonScrapeFailed(res, 'URL invalida');
+    return emptyResponse(res);
   }
 
   try {
@@ -64,35 +128,18 @@ export default async function handler(req, res) {
       },
     });
 
-    if (response.status === 403) {
-      return jsonScrapeFailed(res, 'El sitio bloqueo el scraping (403)', { httpStatus: 403 });
-    }
-
-    if (!response.ok) {
-      return jsonScrapeFailed(res, `No se pudo obtener el articulo (HTTP ${response.status})`, {
-        httpStatus: response.status,
-      });
-    }
+    if (!response.ok) return emptyResponse(res);
 
     const html = await response.text();
     const $ = cheerio.load(html);
 
-    const articleText = extractFromArticle($);
-    const fallbackText = articleText || extractFallbackParagraphs($);
-    const finalText = normalizeText(fallbackText);
+    cleanDom($);
+    const fullText = extractFullText($);
 
-    if (!finalText || finalText.length < 120) {
-      return jsonScrapeFailed(res, 'No se encontro texto util para extraer');
-    }
+    if (!fullText || fullText.length < 120) return emptyResponse(res);
 
-    res.setHeader('Cache-Control', 's-maxage=300');
-    return res.status(200).json({
-      status: 'ok',
-      scraped: true,
-      message: 'Extraccion completada',
-      text: finalText,
-    });
-  } catch (error) {
-    return jsonScrapeFailed(res, error.message || 'Fallo inesperado durante el scraping');
+    return res.status(200).json({ fullText });
+  } catch {
+    return emptyResponse(res);
   }
 }
