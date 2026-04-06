@@ -1,4 +1,4 @@
-import cheerio from 'cheerio';
+import * as cheerio from 'cheerio';
 
 const asSingleValue = (value) => (Array.isArray(value) ? value[0] : value);
 
@@ -9,10 +9,14 @@ const normalizeText = (value = '') =>
     .replace(/\n{3,}/g, '\n\n')
     .trim();
 
+const clampText = (value = '', max = 10000) => value.slice(0, max);
+
 const CONTENT_SELECTORS = [
   'article',
+  '.main-content',
   '.post-content',
   '.entry-content',
+  '#article-body',
   '[itemprop="articleBody"]',
   '.article-content',
   '.news-content',
@@ -48,6 +52,7 @@ const NOISE_SELECTORS = [
   '.popup',
   '.modal',
   '.ads',
+  'ads',
   '.ad',
   '.advertisement',
   '.sponsored',
@@ -141,7 +146,6 @@ const extractFullText = ($) => {
 
   const mergedText = normalizeText(paragraphs.join('\n\n'));
   if (mergedText) return mergedText;
-
   return normalizeText(container.text());
 };
 
@@ -195,16 +199,16 @@ export default async function handler(req, res) {
 
     const fullTextFromJsonLd = extractFromJsonLd($);
     if (fullTextFromJsonLd) {
-      return res.status(200).json({ fullText: fullTextFromJsonLd });
+      return res.status(200).json({ fullText: clampText(fullTextFromJsonLd) });
     }
 
     cleanDom($);
     const fullText = extractFullText($);
 
-    if (fullText) return res.status(200).json({ fullText });
+    if (fullText) return res.status(200).json({ fullText: clampText(fullText) });
 
     const fullTextFromProxy = await extractUsingReadableProxy(targetUrl);
-    if (fullTextFromProxy) return res.status(200).json({ fullText: fullTextFromProxy });
+    if (fullTextFromProxy) return res.status(200).json({ fullText: clampText(fullTextFromProxy) });
 
     return emptyResponse(res);
   } catch {
