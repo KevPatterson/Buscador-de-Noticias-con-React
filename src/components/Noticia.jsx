@@ -112,12 +112,18 @@ const Noticia = ({ noticia, vista, selectedNews = [], onToggleSelect }) => {
                         gap: 2,
                         border: '1px solid',
                         borderColor: 'divider',
-                        borderRadius: 2,
+                        borderRadius: 3,
                         p: 2,
+                        bgcolor: 'rgba(255, 255, 255, 0.74)',
+                        transition: 'transform 180ms cubic-bezier(0.23, 1, 0.32, 1), box-shadow 220ms ease-out',
+                        '&:hover': {
+                            transform: 'translateY(-2px)',
+                            boxShadow: '0 12px 26px rgba(17, 44, 73, 0.11)',
+                        },
                     }}
                 >
                     <Box sx={{ minWidth: 0 }}>
-                        <Typography variant="h6" sx={{ mb: 0.5 }}>
+                        <Typography variant="h6" sx={{ mb: 0.5, lineHeight: 1.2 }}>
                             <Link href={url} target="_blank" rel="noopener noreferrer" underline="hover" color="inherit">
                                 {title}
                             </Link>
@@ -146,6 +152,7 @@ const Noticia = ({ noticia, vista, selectedNews = [], onToggleSelect }) => {
                         color="secondary"
                         size="small"
                         onClick={handleSelectClick}
+                        sx={{ minWidth: 118 }}
                     >
                         {isSelected ? 'Seleccionada' : 'Seleccionar'}
                     </Button>
@@ -158,7 +165,21 @@ const Noticia = ({ noticia, vista, selectedNews = [], onToggleSelect }) => {
 
     return (
         <Grid item xs={12} sm={6} md={4}>
-            <Card sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
+            <Card
+                sx={{
+                    height: '100%',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    borderRadius: 3,
+                    overflow: 'hidden',
+                    background: 'linear-gradient(180deg, rgba(255, 255, 255, 0.92) 0%, rgba(252, 250, 244, 0.92) 100%)',
+                    transition: 'transform 190ms cubic-bezier(0.23, 1, 0.32, 1), box-shadow 220ms ease-out',
+                    '&:hover': {
+                        transform: 'translateY(-4px)',
+                        boxShadow: '0 18px 34px rgba(17, 44, 73, 0.16)',
+                    },
+                }}
+            >
                 {mostrarImagen ? (
                     <CardMedia
                         component="img"
@@ -166,6 +187,7 @@ const Noticia = ({ noticia, vista, selectedNews = [], onToggleSelect }) => {
                         image={imageUrl}
                         alt={`Imagen de la noticia ${title}`}
                         onError={() => setErrorImagen(true)}
+                        sx={{ filter: 'saturate(1.04) contrast(1.03)' }}
                     />
                 ) : (
                     <Box
@@ -177,7 +199,7 @@ const Noticia = ({ noticia, vista, selectedNews = [], onToggleSelect }) => {
                             px: 2,
                             textAlign: 'center',
                             color: 'white',
-                            background: 'linear-gradient(135deg, #263238 0%, #546e7a 100%)',
+                            background: 'linear-gradient(135deg, #133b5c 0%, #2f647f 100%)',
                         }}
                     >
                         <Typography variant="subtitle1">{source}</Typography>
@@ -199,7 +221,17 @@ const Noticia = ({ noticia, vista, selectedNews = [], onToggleSelect }) => {
                     <Typography variant="h6" sx={{ mt: 0.5, mb: 1.5 }}>
                         {title}
                     </Typography>
-                    <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+                    <Typography
+                        variant="body2"
+                        color="text.secondary"
+                        sx={{
+                            mb: 1,
+                            display: '-webkit-box',
+                            WebkitLineClamp: 3,
+                            WebkitBoxOrient: 'vertical',
+                            overflow: 'hidden',
+                        }}
+                    >
                         {description}
                     </Typography>
                     <Typography variant="caption" color="text.secondary">
@@ -209,7 +241,14 @@ const Noticia = ({ noticia, vista, selectedNews = [], onToggleSelect }) => {
 
                 <CardActions sx={{ justifyContent: 'space-between', px: 2, pb: 2 }}>
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                        <Link href={url} target="_blank" rel="noopener noreferrer" color="secondary" underline="none">
+                        <Link
+                            href={url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            color="secondary"
+                            underline="none"
+                            sx={{ fontWeight: 600 }}
+                        >
                             Leer mas
                         </Link>
                         <Tooltip title="Copiar titular">

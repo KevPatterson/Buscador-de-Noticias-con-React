@@ -76,8 +76,21 @@ const Formulario = ({
     onClearFuenteEspecifica,
 }) => {
     return (
-        <Box sx={{ mb: 3 }}>
-            <Stack direction="row" justifyContent="space-between" alignItems="center" gap={2} sx={{ mb: 2 }}>
+        <Box sx={{ mb: 1.5 }}>
+            <Stack
+                direction="row"
+                justifyContent="space-between"
+                alignItems="center"
+                gap={2}
+                sx={{
+                    mb: 2,
+                    p: { xs: 1.2, md: 1.4 },
+                    borderRadius: 3,
+                    bgcolor: 'rgba(255, 255, 255, 0.7)',
+                    border: '1px solid',
+                    borderColor: 'divider',
+                }}
+            >
                 <TextField
                     fullWidth
                     value={query}
@@ -95,14 +108,26 @@ const Formulario = ({
                     }}
                 />
 
-                <Stack direction="row" spacing={1}>
+                <Stack direction="row" spacing={1} sx={{ bgcolor: 'rgba(19, 59, 92, 0.06)', p: 0.5, borderRadius: 999 }}>
                     <Tooltip title="Vista en grid">
-                        <IconButton color={vista === 'grid' ? 'secondary' : 'default'} onClick={() => onChangeVista('grid')}>
+                        <IconButton
+                            color={vista === 'grid' ? 'secondary' : 'default'}
+                            onClick={() => onChangeVista('grid')}
+                            sx={{
+                                bgcolor: vista === 'grid' ? 'rgba(200, 85, 61, 0.16)' : 'transparent',
+                            }}
+                        >
                             <GridViewIcon />
                         </IconButton>
                     </Tooltip>
                     <Tooltip title="Vista en lista">
-                        <IconButton color={vista === 'list' ? 'secondary' : 'default'} onClick={() => onChangeVista('list')}>
+                        <IconButton
+                            color={vista === 'list' ? 'secondary' : 'default'}
+                            onClick={() => onChangeVista('list')}
+                            sx={{
+                                bgcolor: vista === 'list' ? 'rgba(200, 85, 61, 0.16)' : 'transparent',
+                            }}
+                        >
                             <ViewListIcon />
                         </IconButton>
                     </Tooltip>
@@ -135,7 +160,17 @@ const Formulario = ({
                 </Stack>
             </Box>
 
-            <Stack direction={{ xs: 'column', md: 'row' }} alignItems={{ xs: 'stretch', md: 'center' }} gap={2} sx={{ mt: 2 }}>
+            <Stack
+                direction={{ xs: 'column', md: 'row' }}
+                alignItems={{ xs: 'stretch', md: 'center' }}
+                gap={2}
+                sx={{
+                    mt: 2,
+                    pt: 1,
+                    borderTop: '1px dashed',
+                    borderColor: 'divider',
+                }}
+            >
                 <Box sx={{ flexGrow: 1, minWidth: 0 }}>
                     <Tabs
                         value={categoria}
@@ -143,6 +178,9 @@ const Formulario = ({
                         variant="scrollable"
                         allowScrollButtonsMobile
                         scrollButtons
+                        sx={{
+                            '& .MuiTab-root': { borderRadius: 999, mr: 0.6, minHeight: 40 },
+                        }}
                     >
                         {categorias.map((item) => (
                             <Tab key={item.value} value={item.value} label={item.label} />
@@ -175,7 +213,7 @@ const Formulario = ({
                     )}
 
                     {historial.length === 0 && (
-                        <Typography variant="body2" color="text.secondary">
+                        <Typography variant="body2" color="text.secondary" sx={{ fontStyle: 'italic' }}>
                             Aun no tienes busquedas recientes.
                         </Typography>
                     )}

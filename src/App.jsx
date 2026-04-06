@@ -1,6 +1,8 @@
 import Alert from '@mui/material/Alert';
+import Box from '@mui/material/Box';
+import Chip from '@mui/material/Chip';
 import Snackbar from '@mui/material/Snackbar';
-import { Container, Typography } from '@mui/material';
+import { Container, Stack, Typography } from '@mui/material';
 import { saveAs } from 'file-saver';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Document, HeadingLevel, Packer, Paragraph, TextRun, AlignmentType } from 'docx';
@@ -539,59 +541,81 @@ function App() {
     : fuenteEspecifica
       ? `No se encontraron noticias en ${nombreFuenteSeleccionada} para esta busqueda.`
       : undefined;
+  const fechaActual = new Intl.DateTimeFormat('es-ES', { dateStyle: 'full' }).format(new Date());
 
   return (
-    <Container maxWidth="lg" sx={{ pb: 5 }}>
-      <header>
-        <Typography align="center" marginY={4} component="h1" variant="h3" color="secondary">
-          Buscador de Noticias
-        </Typography>
+    <Container maxWidth="lg" className="app-shell">
+      <header className="hero-panel">
+        <Stack spacing={1.4}>
+          <Chip
+            label={fechaActual}
+            color="primary"
+            variant="outlined"
+            sx={{ width: 'fit-content', bgcolor: 'rgba(255, 255, 255, 0.75)' }}
+          />
+
+          <Typography component="h1" variant="h2" sx={{ color: 'primary.main', lineHeight: 1.05 }}>
+            Radar Diario
+          </Typography>
+
+          <Typography variant="h4" sx={{ color: 'text.primary', lineHeight: 1.15 }}>
+            Buscador de Noticias
+          </Typography>
+
+          <Typography variant="body1" sx={{ color: 'text.secondary', maxWidth: 760 }}>
+            Descubre titulares en tiempo real, filtra por fuente o categoria y arma un boletin listo para compartir con tu equipo.
+          </Typography>
+        </Stack>
       </header>
 
-      <Formulario
-        query={query}
-        onChangeQuery={handleChangeQuery}
-        onClearQuery={() => handleChangeQuery('')}
-        busquedasRapidas={BUSQUEDAS_RAPIDAS}
-        chipActivo={chipActivo}
-        onQuickSearch={handleQuickSearch}
-        categorias={CATEGORIAS}
-        categoria={categoria}
-        onChangeCategoria={handleChangeCategoria}
-        historial={historial}
-        onSelectHistorial={handleSelectHistorial}
-        onClearHistorial={() => {
-          setHistorial([]);
-          localStorage.setItem(HISTORIAL_KEY, JSON.stringify([]));
-        }}
-        vista={vista}
-        onChangeVista={setVista}
-        fuenteEspecifica={fuenteEspecifica}
-        onChangeFuenteEspecifica={(nuevoDominio) => {
-          setPagina('');
-          setFuenteEspecifica(nuevoDominio || null);
-        }}
-        onClearFuenteEspecifica={() => {
-          setPagina('');
-          setFuenteEspecifica(null);
-        }}
-      />
+      <Box className="surface-panel">
+        <Formulario
+          query={query}
+          onChangeQuery={handleChangeQuery}
+          onClearQuery={() => handleChangeQuery('')}
+          busquedasRapidas={BUSQUEDAS_RAPIDAS}
+          chipActivo={chipActivo}
+          onQuickSearch={handleQuickSearch}
+          categorias={CATEGORIAS}
+          categoria={categoria}
+          onChangeCategoria={handleChangeCategoria}
+          historial={historial}
+          onSelectHistorial={handleSelectHistorial}
+          onClearHistorial={() => {
+            setHistorial([]);
+            localStorage.setItem(HISTORIAL_KEY, JSON.stringify([]));
+          }}
+          vista={vista}
+          onChangeVista={setVista}
+          fuenteEspecifica={fuenteEspecifica}
+          onChangeFuenteEspecifica={(nuevoDominio) => {
+            setPagina('');
+            setFuenteEspecifica(nuevoDominio || null);
+          }}
+          onClearFuenteEspecifica={() => {
+            setPagina('');
+            setFuenteEspecifica(null);
+          }}
+        />
+      </Box>
 
-      <ListadoNoticias
-        noticias={noticias}
-        loading={loading}
-        error={error}
-        totalResults={totalResults}
-        onRetry={handleRetry}
-        vista={vista}
-        sentinelRef={sentinelRef}
-        isLoadingMore={isLoadingMoreActivo}
-        hasMore={hasMoreActivo}
-        query={query}
-        emptyMessage={mensajeSinResultados}
-        selectedNews={selectedNews}
-        onToggleSelect={toggleNewsSelection}
-      />
+      <Box className="surface-panel news-grid-enter" sx={{ mt: 2.2 }}>
+        <ListadoNoticias
+          noticias={noticias}
+          loading={loading}
+          error={error}
+          totalResults={totalResults}
+          onRetry={handleRetry}
+          vista={vista}
+          sentinelRef={sentinelRef}
+          isLoadingMore={isLoadingMoreActivo}
+          hasMore={hasMoreActivo}
+          query={query}
+          emptyMessage={mensajeSinResultados}
+          selectedNews={selectedNews}
+          onToggleSelect={toggleNewsSelection}
+        />
+      </Box>
 
       <FloatingCart
         selectedCount={selectedNews.length}

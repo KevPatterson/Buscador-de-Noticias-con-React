@@ -31,9 +31,12 @@ const FloatingCart = ({ selectedCount, isLoading, onGenerate }) => {
         bottom: { xs: 12, sm: 24 },
         zIndex: 1200,
         px: 2,
-        py: 1.5,
-        borderRadius: 3,
+        py: 1.55,
+        borderRadius: 4,
         minWidth: { xs: 260, sm: 310 },
+        border: '1px solid rgba(18, 38, 58, 0.12)',
+        background: 'linear-gradient(130deg, rgba(255, 253, 248, 0.95) 0%, rgba(237, 244, 248, 0.95) 100%)',
+        backdropFilter: 'blur(8px)',
       }}
     >
       <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 2 }}>
@@ -52,7 +55,7 @@ const FloatingCart = ({ selectedCount, isLoading, onGenerate }) => {
           startIcon={isLoading ? <CircularProgress size={16} color="inherit" /> : <DownloadIcon />}
           onClick={onGenerate}
           disabled={isLoading || selectedCount === 0}
-          sx={{ whiteSpace: 'nowrap' }}
+          sx={{ whiteSpace: 'nowrap', px: 1.8 }}
         >
           {isLoading ? 'Generando...' : 'Generar Boletin en Word'}
         </Button>

@@ -10,7 +10,20 @@ const ClearIcon = (props) => (
 
 const SelectorFuente = ({ value, onChange, onClear }) => {
   return (
-    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, width: { xs: '100%', md: '280px' }, maxWidth: 280 }}>
+    <Box
+      sx={{
+        display: 'flex',
+        alignItems: 'center',
+        gap: 1,
+        width: { xs: '100%', md: '280px' },
+        maxWidth: 280,
+        p: 0.55,
+        borderRadius: 999,
+        bgcolor: 'rgba(255, 255, 255, 0.72)',
+        border: '1px solid',
+        borderColor: 'divider',
+      }}
+    >
       <Autocomplete
         size="small"
         options={DOMINIOS_PREFERIDOS}
@@ -25,11 +38,12 @@ const SelectorFuente = ({ value, onChange, onClear }) => {
             placeholder="Todas las fuentes"
             label="Fuente"
             InputLabelProps={{ shrink: true }}
+            sx={{ '& .MuiOutlinedInput-root': { borderRadius: 999 } }}
           />
         )}
       />
 
-      <IconButton aria-label="Limpiar fuente" size="small" onClick={onClear}>
+      <IconButton aria-label="Limpiar fuente" size="small" onClick={onClear} sx={{ bgcolor: 'rgba(19, 59, 92, 0.08)' }}>
         <ClearIcon />
       </IconButton>
     </Box>

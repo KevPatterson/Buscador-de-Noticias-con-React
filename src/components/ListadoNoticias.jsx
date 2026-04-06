@@ -18,7 +18,18 @@ const SearchOffIcon = (props) => (
 const SkeletonCard = ({ vista }) => {
     if (vista === 'list') {
         return (
-            <Box sx={{ display: 'flex', justifyContent: 'space-between', gap: 2, p: 2, border: '1px solid #eee', borderRadius: 2 }}>
+            <Box
+                sx={{
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    gap: 2,
+                    p: 2,
+                    border: '1px solid',
+                    borderColor: 'divider',
+                    borderRadius: 3,
+                    bgcolor: 'rgba(255, 255, 255, 0.68)',
+                }}
+            >
                 <Box sx={{ flexGrow: 1 }}>
                     <Skeleton variant="text" width="80%" />
                     <Skeleton variant="text" width="60%" />
@@ -30,7 +41,7 @@ const SkeletonCard = ({ vista }) => {
     }
 
     return (
-        <Box sx={{ border: '1px solid #eee', borderRadius: 3, p: 1.5 }}>
+        <Box sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 3, p: 1.5, bgcolor: 'rgba(255,255,255,0.68)' }}>
             <Skeleton variant="rectangular" height={180} sx={{ borderRadius: 2 }} />
             <Skeleton variant="text" width="80%" sx={{ mt: 2 }} />
             <Skeleton variant="text" width="60%" />
@@ -60,7 +71,9 @@ const ListadoNoticias = ({
     return (
         <>
             <Typography textAlign="center" marginY={4} variant="h4" component="h2" color="secondary">
-                Ultimas Noticias
+                <Box component="span" className="section-title">
+                    Ultimas Noticias
+                </Box>
             </Typography>
 
             {!error && totalResults > 0 && (
@@ -94,7 +107,16 @@ const ListadoNoticias = ({
             )}
 
             {sinResultados && (
-                <Box sx={{ py: 7, textAlign: 'center' }}>
+                <Box
+                    sx={{
+                        py: 7,
+                        textAlign: 'center',
+                        border: '1px dashed',
+                        borderColor: 'divider',
+                        borderRadius: 3,
+                        bgcolor: 'rgba(255, 255, 255, 0.55)',
+                    }}
+                >
                     <SearchOffIcon sx={{ fontSize: 56, color: 'text.secondary' }} />
                     <Typography variant="h6" sx={{ mt: 1 }}>
                         {emptyMessage || 'No encontramos noticias para esa busqueda.'}
