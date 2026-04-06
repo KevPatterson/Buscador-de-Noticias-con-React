@@ -71,7 +71,7 @@ export const fetchTheNewsAPI = async ({ query, categoria, pagina, domainurl, sig
   const data = await res.json();
 
   if (!res.ok) {
-    if (res.status === 429) throw new Error('QUOTA_EXCEEDED');
+    if (res.status === 429 || res.status === 402) throw new Error('QUOTA_EXCEEDED');
 
     const requestError = new Error('TheNewsAPI error');
     requestError.status = res.status;
