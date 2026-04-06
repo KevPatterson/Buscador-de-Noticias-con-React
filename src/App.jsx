@@ -36,6 +36,7 @@ const BUSQUEDAS_RAPIDAS = [
 const HISTORIAL_KEY = 'historial_busquedas';
 const VISTA_KEY = 'vista_preferida';
 const FUENTE_KEY = 'fuente_preferida';
+const SCRAPE_API_BASE = (import.meta.env.VITE_SCRAPE_API_BASE_URL || '').replace(/\/$/, '');
 
 function App() {
   const [query, setQuery] = useState('');
@@ -237,7 +238,11 @@ function App() {
           }
 
           try {
-            const response = await fetch(`/api/scrape?url=${encodedUrl}`);
+            const response = await fetch(`${SCRAPE_API_BASE}/api/scrape?url=${encodedUrl}`);
+            const contentType = response.headers.get('content-type') || '';
+            if (!response.ok || !contentType.includes('application/json')) {
+              throw new Error('Endpoint /api/scrape no disponible o respuesta invalida');
+            }
             const payload = await response.json();
             const scrapedText = cleanDocText(payload?.fullText || '');
             const isCompleteText = scrapedText.length >= 220;

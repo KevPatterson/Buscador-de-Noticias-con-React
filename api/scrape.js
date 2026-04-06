@@ -147,6 +147,25 @@ const extractFullText = ($) => {
 
 const emptyResponse = (res) => res.status(200).json({ fullText: '' });
 
+const extractUsingReadableProxy = async (targetUrl) => {
+  try {
+    const cleanTarget = targetUrl.replace(/^https?:\/\//i, '');
+    const proxyUrl = `https://r.jina.ai/http://${cleanTarget}`;
+    const response = await fetch(proxyUrl, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (compatible; NewsAppScraper/1.0)',
+        Accept: 'text/plain',
+      },
+    });
+
+    if (!response.ok) return '';
+    const plainText = normalizeText(await response.text());
+    return plainText.length >= 220 ? plainText : '';
+  } catch {
+    return '';
+  }
+};
+
 export default async function handler(req, res) {
   const urlParam = asSingleValue(req.query.url);
 
@@ -182,9 +201,12 @@ export default async function handler(req, res) {
     cleanDom($);
     const fullText = extractFullText($);
 
-    if (!fullText) return emptyResponse(res);
+    if (fullText) return res.status(200).json({ fullText });
 
-    return res.status(200).json({ fullText });
+    const fullTextFromProxy = await extractUsingReadableProxy(targetUrl);
+    if (fullTextFromProxy) return res.status(200).json({ fullText: fullTextFromProxy });
+
+    return emptyResponse(res);
   } catch {
     return emptyResponse(res);
   }
