@@ -71,7 +71,7 @@ const getParagraphsFromNode = ($, node) => {
 
   node.find('p').each((_, element) => {
     const paragraph = normalizeText($(element).text());
-    if (paragraph.length >= 40) chunks.push(paragraph);
+    if (paragraph.length >= 20) chunks.push(paragraph);
   });
 
   return chunks;
@@ -102,7 +102,10 @@ const extractFullText = ($) => {
     return normalizeText(container.text());
   }
 
-  return normalizeText(paragraphs.join('\n\n'));
+  const mergedText = normalizeText(paragraphs.join('\n\n'));
+  if (mergedText) return mergedText;
+
+  return normalizeText(container.text());
 };
 
 const emptyResponse = (res) => res.status(200).json({ fullText: '' });
@@ -136,7 +139,7 @@ export default async function handler(req, res) {
     cleanDom($);
     const fullText = extractFullText($);
 
-    if (!fullText || fullText.length < 120) return emptyResponse(res);
+    if (!fullText) return emptyResponse(res);
 
     return res.status(200).json({ fullText });
   } catch {
