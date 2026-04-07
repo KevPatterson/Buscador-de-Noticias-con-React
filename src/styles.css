@@ -29,25 +29,29 @@ body {
 }
 
 .newsroom-topbar {
-  min-height: 32px;
-  background: var(--news-highlight);
-  color: var(--news-bg);
+  min-height: 28px;
+  background: #16130f;
+  color: var(--news-muted);
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 16px;
-  padding: 0 16px;
+  padding: 0 14px;
+  border-top: 1px solid rgba(232, 200, 74, 0.14);
+  border-bottom: 1px solid rgba(232, 200, 74, 0.14);
 }
 
 .mono-meta {
   font-family: 'IBM Plex Mono', monospace;
-  font-size: 0.7rem;
-  letter-spacing: 0.08em;
+  font-size: 0.64rem;
+  letter-spacing: 0.06em;
   text-transform: uppercase;
+  opacity: 0.88;
 }
 
 .mono-meta-right {
   text-align: right;
+  opacity: 0.8;
 }
 
 .newsroom-masthead {

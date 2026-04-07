@@ -181,7 +181,7 @@ const Noticia = ({ noticia, vista, index = 0, selectedNews = [], onToggleSelect 
     }
 
     return (
-        <Grid item xs={12} sm={6} md={4}>
+        <Grid item xs={12} sm={6} md={4} sx={{ perspective: '1200px' }}>
             <Card
                 className="card-entrada"
                 sx={{
@@ -191,6 +191,23 @@ const Noticia = ({ noticia, vista, index = 0, selectedNews = [], onToggleSelect 
                     borderRadius: 1,
                     overflow: 'hidden',
                     animationDelay: `${Math.min(index, 8) * 60}ms`,
+                    transformStyle: 'preserve-3d',
+                    transformOrigin: 'center center',
+                    transition: 'transform 240ms cubic-bezier(0.23, 1, 0.32, 1), box-shadow 240ms cubic-bezier(0.23, 1, 0.32, 1)',
+                    '@media (hover: hover)': {
+                        '&:hover': {
+                            transform: 'translateY(-6px) rotateX(2.5deg) rotateY(-3deg) scale(1.01)',
+                            boxShadow: '0 22px 34px rgba(0, 0, 0, 0.38)',
+                        },
+                    },
+                    '& .MuiCardMedia-root': {
+                        transition: 'transform 260ms cubic-bezier(0.23, 1, 0.32, 1)',
+                    },
+                    '@media (hover: hover) and (pointer: fine)': {
+                        '&:hover .MuiCardMedia-root': {
+                            transform: 'translateZ(16px) scale(1.03)',
+                        },
+                    },
                 }}
             >
                 {mostrarImagen ? (
