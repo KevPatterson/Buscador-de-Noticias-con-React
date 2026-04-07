@@ -76,17 +76,17 @@ const Formulario = ({
     onClearFuenteEspecifica,
 }) => {
     return (
-        <Box sx={{ mb: 1.5 }}>
+        <Box className="newsroom-form" sx={{ mb: 0.5 }}>
             <Stack
-                direction="row"
+                direction={{ xs: 'column', md: 'row' }}
                 justifyContent="space-between"
-                alignItems="center"
+                alignItems={{ xs: 'stretch', md: 'center' }}
                 gap={2}
                 sx={{
-                    mb: 2,
-                    p: { xs: 1.2, md: 1.4 },
-                    borderRadius: 3,
-                    bgcolor: 'rgba(255, 255, 255, 0.7)',
+                    mb: 1.2,
+                    p: { xs: 1, md: 1.25 },
+                    borderRadius: 1,
+                    bgcolor: 'background.paper',
                     border: '1px solid',
                     borderColor: 'divider',
                 }}
@@ -98,6 +98,7 @@ const Formulario = ({
                     placeholder="Buscar noticias... ej: apagones Cuba, IA, salud"
                     variant="outlined"
                     InputProps={{
+                        className: 'newsroom-search-input',
                         endAdornment: query ? (
                             <InputAdornment position="end">
                                 <IconButton aria-label="Limpiar busqueda" onClick={onClearQuery} edge="end">
@@ -108,13 +109,16 @@ const Formulario = ({
                     }}
                 />
 
-                <Stack direction="row" spacing={1} sx={{ bgcolor: 'rgba(19, 59, 92, 0.06)', p: 0.5, borderRadius: 999 }}>
+                <Stack direction="row" spacing={1} sx={{ bgcolor: 'transparent', p: 0.2, borderRadius: 1 }}>
                     <Tooltip title="Vista en grid">
                         <IconButton
-                            color={vista === 'grid' ? 'secondary' : 'default'}
+                            color={vista === 'grid' ? 'primary' : 'default'}
                             onClick={() => onChangeVista('grid')}
                             sx={{
-                                bgcolor: vista === 'grid' ? 'rgba(200, 85, 61, 0.16)' : 'transparent',
+                                border: '1px solid',
+                                borderColor: vista === 'grid' ? 'primary.main' : 'divider',
+                                bgcolor: vista === 'grid' ? 'rgba(232,200,74,0.08)' : 'transparent',
+                                borderRadius: 1,
                             }}
                         >
                             <GridViewIcon />
@@ -122,10 +126,13 @@ const Formulario = ({
                     </Tooltip>
                     <Tooltip title="Vista en lista">
                         <IconButton
-                            color={vista === 'list' ? 'secondary' : 'default'}
+                            color={vista === 'list' ? 'primary' : 'default'}
                             onClick={() => onChangeVista('list')}
                             sx={{
-                                bgcolor: vista === 'list' ? 'rgba(200, 85, 61, 0.16)' : 'transparent',
+                                border: '1px solid',
+                                borderColor: vista === 'list' ? 'primary.main' : 'divider',
+                                bgcolor: vista === 'list' ? 'rgba(232,200,74,0.08)' : 'transparent',
+                                borderRadius: 1,
                             }}
                         >
                             <ViewListIcon />
@@ -146,14 +153,14 @@ const Formulario = ({
             )}
 
             <Box sx={{ overflowX: 'auto', pb: 1 }}>
-                <Stack direction="row" spacing={1} sx={{ width: 'max-content' }}>
+                <Stack direction="row" spacing={0.8} sx={{ width: 'max-content' }}>
                     {busquedasRapidas.map((item) => (
                         <Chip
                             key={item.value}
                             label={item.label}
                             icon={item.value === 'Cuba' ? <CubaFlagIcon /> : undefined}
-                            color={chipActivo === item.value ? 'secondary' : 'default'}
-                            variant={chipActivo === item.value ? 'filled' : 'outlined'}
+                            className={`newsroom-quick-chip ${chipActivo === item.value ? 'is-active' : ''}`}
+                            variant="outlined"
                             onClick={() => onQuickSearch(item.value)}
                         />
                     ))}
@@ -165,9 +172,9 @@ const Formulario = ({
                 alignItems={{ xs: 'stretch', md: 'center' }}
                 gap={2}
                 sx={{
-                    mt: 2,
+                    mt: 1.25,
                     pt: 1,
-                    borderTop: '1px dashed',
+                    borderTop: '1px solid',
                     borderColor: 'divider',
                 }}
             >
@@ -179,7 +186,7 @@ const Formulario = ({
                         allowScrollButtonsMobile
                         scrollButtons
                         sx={{
-                            '& .MuiTab-root': { borderRadius: 999, mr: 0.6, minHeight: 40 },
+                            '& .MuiTab-root': { borderRadius: 1, mr: 0.4, minHeight: 38 },
                         }}
                     >
                         {categorias.map((item) => (
@@ -205,6 +212,7 @@ const Formulario = ({
                             label={item}
                             onClick={() => onSelectHistorial(item)}
                             variant="outlined"
+                            className="newsroom-history-chip"
                         />
                     ))}
 

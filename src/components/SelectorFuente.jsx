@@ -17,9 +17,9 @@ const SelectorFuente = ({ value, onChange, onClear }) => {
         gap: 1,
         width: { xs: '100%', md: '280px' },
         maxWidth: 280,
-        p: 0.55,
-        borderRadius: 999,
-        bgcolor: 'rgba(255, 255, 255, 0.72)',
+        p: 0.4,
+        borderRadius: 1,
+        bgcolor: 'background.default',
         border: '1px solid',
         borderColor: 'divider',
       }}
@@ -32,18 +32,48 @@ const SelectorFuente = ({ value, onChange, onClear }) => {
         disableClearable
         getOptionLabel={(option) => NOMBRES_FUENTES[option] || option}
         fullWidth
+        sx={{
+          '& .MuiInputLabel-root': {
+            color: 'text.secondary',
+          },
+          '& .MuiInputLabel-root.Mui-focused': {
+            color: 'primary.main',
+          },
+          '& .MuiOutlinedInput-root': {
+            borderRadius: 1,
+            bgcolor: 'background.paper',
+            color: 'text.primary',
+          },
+          '& .MuiAutocomplete-popupIndicator, & .MuiAutocomplete-endAdornment .MuiSvgIcon-root': {
+            color: 'text.secondary',
+          },
+        }}
         renderInput={(params) => (
           <TextField
             {...params}
             placeholder="Todas las fuentes"
             label="Fuente"
             InputLabelProps={{ shrink: true }}
-            sx={{ '& .MuiOutlinedInput-root': { borderRadius: 999 } }}
           />
         )}
       />
 
-      <IconButton aria-label="Limpiar fuente" size="small" onClick={onClear} sx={{ bgcolor: 'rgba(19, 59, 92, 0.08)' }}>
+      <IconButton
+        aria-label="Limpiar fuente"
+        size="small"
+        onClick={onClear}
+        sx={{
+          bgcolor: 'rgba(46, 42, 36, 0.9)',
+          color: 'text.secondary',
+          border: '1px solid',
+          borderColor: 'divider',
+          borderRadius: 1,
+          '&:hover': {
+            bgcolor: 'rgba(232, 200, 74, 0.1)',
+            color: 'primary.main',
+          },
+        }}
+      >
         <ClearIcon />
       </IconButton>
     </Box>

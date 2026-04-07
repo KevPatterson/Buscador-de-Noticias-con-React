@@ -62,7 +62,23 @@ const esImagenSegura = (imageUrl) => {
     }
 };
 
-const Noticia = ({ noticia, vista, selectedNews = [], onToggleSelect }) => {
+const formatRelativeDate = (value) => {
+    if (!value) return 'Sin fecha';
+
+    const parsed = new Date(value).getTime();
+    if (Number.isNaN(parsed)) return 'Sin fecha';
+
+    const diffMin = Math.max(1, Math.floor((Date.now() - parsed) / 60000));
+    if (diffMin < 60) return `${diffMin} min`;
+
+    const diffHours = Math.floor(diffMin / 60);
+    if (diffHours < 24) return `${diffHours} h`;
+
+    const diffDays = Math.floor(diffHours / 24);
+    return `${diffDays} d`;
+};
+
+const Noticia = ({ noticia, vista, index = 0, selectedNews = [], onToggleSelect }) => {
     const [copiado, setCopiado] = useState(false);
     const [openSnack, setOpenSnack] = useState(false);
     const [errorImagen, setErrorImagen] = useState(false);
@@ -74,6 +90,7 @@ const Noticia = ({ noticia, vista, selectedNews = [], onToggleSelect }) => {
     const imageUrl = noticia.image_url;
     const mostrarImagen = esImagenSegura(imageUrl) && !errorImagen;
     const fecha = formatDate(noticia.pubDate);
+    const fechaRelativa = formatRelativeDate(noticia.pubDate);
     const fuenteCubana = esFuenteCubana(url);
     const key = noticia.link || noticia.title;
     const isSelected = selectedNews.some((item) => (item.link || item.title) === key);
@@ -105,57 +122,57 @@ const Noticia = ({ noticia, vista, selectedNews = [], onToggleSelect }) => {
         return (
             <Grid item xs={12}>
                 <Box
+                    className="list-news-item"
                     sx={{
                         display: 'flex',
-                        justifyContent: 'space-between',
-                        alignItems: 'center',
-                        gap: 2,
-                        border: '1px solid',
+                        alignItems: { xs: 'flex-start', md: 'center' },
+                        gap: { xs: 1.2, md: 2 },
+                        borderBottom: '1px solid',
                         borderColor: 'divider',
-                        borderRadius: 3,
-                        p: 2,
-                        bgcolor: 'rgba(255, 255, 255, 0.74)',
-                        transition: 'transform 180ms cubic-bezier(0.23, 1, 0.32, 1), box-shadow 220ms ease-out',
-                        '&:hover': {
-                            transform: 'translateY(-2px)',
-                            boxShadow: '0 12px 26px rgba(17, 44, 73, 0.11)',
-                        },
+                        py: 1.35,
+                        animationDelay: `${Math.min(index, 8) * 60}ms`,
                     }}
                 >
-                    <Box sx={{ minWidth: 0 }}>
-                        <Typography variant="h6" sx={{ mb: 0.5, lineHeight: 1.2 }}>
+                    <Typography className="news-list-order" component="span">
+                        {String(index + 1).padStart(2, '0')}
+                    </Typography>
+
+                    <Box sx={{ minWidth: 0, flexGrow: 1 }}>
+                        <Typography variant="h6" sx={{ mb: 0.35, lineHeight: 1.2, pr: { md: 1.5 } }}>
                             <Link href={url} target="_blank" rel="noopener noreferrer" underline="hover" color="inherit">
                                 {title}
                             </Link>
                         </Typography>
-                        <Typography variant="body2" color="text.secondary">
-                            {source} - {fecha}
+                        <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
+                            {source} · {fechaRelativa} · {fecha}
                         </Typography>
+                    </Box>
+
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, ml: 'auto', flexWrap: 'wrap', justifyContent: 'flex-end' }}>
                         {fuenteCubana && (
                             <Chip
                                 label="Fuente cubana"
                                 size="small"
                                 color="secondary"
-                                sx={{ mt: 1 }}
                             />
                         )}
+
+                        <Tooltip title="Copiar titular">
+                            <IconButton color={copiado ? 'success' : 'default'} onClick={handleCopy}>
+                                {copiado ? <CheckIcon /> : <ContentCopyIcon />}
+                            </IconButton>
+                        </Tooltip>
+
+                        <Button
+                            variant={isSelected ? 'contained' : 'outlined'}
+                            color="primary"
+                            size="small"
+                            onClick={handleSelectClick}
+                            sx={{ minWidth: 122 }}
+                        >
+                            {isSelected ? 'Seleccionada' : 'Seleccionar'}
+                        </Button>
                     </Box>
-
-                    <Tooltip title="Copiar titular">
-                        <IconButton color={copiado ? 'success' : 'default'} onClick={handleCopy}>
-                            {copiado ? <CheckIcon /> : <ContentCopyIcon />}
-                        </IconButton>
-                    </Tooltip>
-
-                    <Button
-                        variant={isSelected ? 'contained' : 'outlined'}
-                        color="secondary"
-                        size="small"
-                        onClick={handleSelectClick}
-                        sx={{ minWidth: 118 }}
-                    >
-                        {isSelected ? 'Seleccionada' : 'Seleccionar'}
-                    </Button>
                 </Box>
 
                 <Snackbar open={openSnack} autoHideDuration={2000} message="¡Copiado!" onClose={() => setOpenSnack(false)} />
@@ -166,18 +183,14 @@ const Noticia = ({ noticia, vista, selectedNews = [], onToggleSelect }) => {
     return (
         <Grid item xs={12} sm={6} md={4}>
             <Card
+                className="card-entrada"
                 sx={{
                     height: '100%',
                     display: 'flex',
                     flexDirection: 'column',
-                    borderRadius: 3,
+                    borderRadius: 1,
                     overflow: 'hidden',
-                    background: 'linear-gradient(180deg, rgba(255, 255, 255, 0.92) 0%, rgba(252, 250, 244, 0.92) 100%)',
-                    transition: 'transform 190ms cubic-bezier(0.23, 1, 0.32, 1), box-shadow 220ms ease-out',
-                    '&:hover': {
-                        transform: 'translateY(-4px)',
-                        boxShadow: '0 18px 34px rgba(17, 44, 73, 0.16)',
-                    },
+                    animationDelay: `${Math.min(index, 8) * 60}ms`,
                 }}
             >
                 {mostrarImagen ? (
@@ -187,7 +200,7 @@ const Noticia = ({ noticia, vista, selectedNews = [], onToggleSelect }) => {
                         image={imageUrl}
                         alt={`Imagen de la noticia ${title}`}
                         onError={() => setErrorImagen(true)}
-                        sx={{ filter: 'saturate(1.04) contrast(1.03)' }}
+                        sx={{ aspectRatio: '16/9', objectFit: 'cover' }}
                     />
                 ) : (
                     <Box
@@ -198,28 +211,43 @@ const Noticia = ({ noticia, vista, selectedNews = [], onToggleSelect }) => {
                             justifyContent: 'center',
                             px: 2,
                             textAlign: 'center',
-                            color: 'white',
-                            background: 'linear-gradient(135deg, #133b5c 0%, #2f647f 100%)',
+                            color: '#3e3830',
+                            background: '#2e2a24',
+                            borderBottom: '1px solid',
+                            borderColor: 'divider',
                         }}
                     >
-                        <Typography variant="subtitle1">{source}</Typography>
+                        <Typography variant="h4" sx={{ fontStyle: 'italic', opacity: 0.55 }}>
+                            {source}
+                        </Typography>
                     </Box>
                 )}
 
-                <CardContent sx={{ flexGrow: 1 }}>
+                <CardContent sx={{ flexGrow: 1, px: 2, pt: 1.2, pb: 0.6 }}>
                     <Typography variant="caption" color="text.secondary">
-                        {source}
+                        {source} · {fechaRelativa}
                     </Typography>
                     {fuenteCubana && (
                         <Chip
                             label="Fuente cubana"
                             size="small"
                             color="secondary"
-                            sx={{ mt: 1, mb: 1, display: 'inline-flex' }}
+                            sx={{ mt: 1, mb: 0.8, display: 'inline-flex' }}
                         />
                     )}
-                    <Typography variant="h6" sx={{ mt: 0.5, mb: 1.5 }}>
-                        {title}
+                    <Typography
+                        variant="h6"
+                        sx={{
+                            mt: 0.4,
+                            mb: 1.15,
+                            textTransform: title.length <= 65 ? 'uppercase' : 'none',
+                            display: '-webkit-box',
+                            WebkitLineClamp: 3,
+                            WebkitBoxOrient: 'vertical',
+                            overflow: 'hidden',
+                        }}
+                    >
+                        {title.replace(/\*+/g, '').trim()}
                     </Typography>
                     <Typography
                         variant="body2"
@@ -234,22 +262,22 @@ const Noticia = ({ noticia, vista, selectedNews = [], onToggleSelect }) => {
                     >
                         {description}
                     </Typography>
-                    <Typography variant="caption" color="text.secondary">
+                    <Typography variant="caption" color="text.secondary" sx={{ opacity: 0.82 }}>
                         {fecha}
                     </Typography>
                 </CardContent>
 
-                <CardActions sx={{ justifyContent: 'space-between', px: 2, pb: 2 }}>
+                <CardActions sx={{ justifyContent: 'space-between', px: 2, pb: 2, pt: 0 }}>
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                         <Link
                             href={url}
                             target="_blank"
                             rel="noopener noreferrer"
-                            color="secondary"
+                            color="primary.main"
                             underline="none"
-                            sx={{ fontWeight: 600 }}
+                            sx={{ fontWeight: 600, letterSpacing: '0.08em', fontSize: '0.75rem' }}
                         >
-                            Leer mas
+                            LEER →
                         </Link>
                         <Tooltip title="Copiar titular">
                             <IconButton color={copiado ? 'success' : 'default'} onClick={handleCopy}>
@@ -260,7 +288,7 @@ const Noticia = ({ noticia, vista, selectedNews = [], onToggleSelect }) => {
 
                     <Button
                         variant={isSelected ? 'contained' : 'outlined'}
-                        color="secondary"
+                        color="primary"
                         size="small"
                         onClick={handleSelectClick}
                     >

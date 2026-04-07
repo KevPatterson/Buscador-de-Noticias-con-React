@@ -1,13 +1,15 @@
 import Alert from '@mui/material/Alert';
 import Box from '@mui/material/Box';
-import Chip from '@mui/material/Chip';
+import Divider from '@mui/material/Divider';
 import Snackbar from '@mui/material/Snackbar';
-import { Container, Stack, Typography } from '@mui/material';
+import { Container, Typography } from '@mui/material';
 import { saveAs } from 'file-saver';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Document, HeadingLevel, Packer, Paragraph, TextRun, AlignmentType } from 'docx';
+import BreakingNewsBanner from './components/BreakingNewsBanner.jsx';
 import FloatingCart from './components/FloatingCart.jsx';
 import Formulario from './components/Formulario.jsx';
+import Header from './components/Header.jsx';
 import ListadoNoticias from './components/ListadoNoticias.jsx';
 import { NOMBRES_FUENTES } from './config/fuentes';
 import { FUENTES_INSTITUCIONALES, FUENTES_RSS } from './config/fuentes-rss';
@@ -146,7 +148,6 @@ function App() {
     noticias: noticiasNewsData,
     loading: loadingNewsData,
     error: errorNewsData,
-    fuenteActiva: fuenteActivaNewsData,
     totalResults: totalResultsNewsData,
     nextPage,
     hasMore,
@@ -176,7 +177,6 @@ function App() {
   const loading = usarRSS ? loadingRSS : loadingNewsData;
   const error = usarRSS ? errorRSS : errorNewsData;
   const totalResults = usarRSS ? noticiasRSS.length : totalResultsNewsData;
-  const fuenteActiva = usarRSS ? 'rss' : fuenteActivaNewsData;
   const nextPageActivo = usarRSS ? null : nextPage;
   const hasMoreActivo = usarRSS ? false : hasMore;
   const isLoadingMoreActivo = usarRSS ? false : isLoadingMore;
@@ -279,10 +279,6 @@ function App() {
 
       return [...current, newsItem];
     });
-  };
-
-  const clearSelectedNews = () => {
-    setSelectedNews([]);
   };
 
   const cleanDocText = (value = '') =>
@@ -503,22 +499,18 @@ function App() {
           if (!block.trim()) return;
           children.push(
             new Paragraph({
-              alignment: AlignmentType.JUSTIFIED,
+              text: block,
               spacing: { after: 140 },
-              children: [
-                new TextRun({ text: block, font: 'Arial', size: 22 }),
-              ],
             })
           );
         });
 
         children.push(
           new Paragraph({
-            alignment: AlignmentType.JUSTIFIED,
             spacing: { after: 280 },
             children: [
-              new TextRun({ text: 'Fuente: ', bold: true, font: 'Arial', size: 22 }),
-              new TextRun({ text: sourceUrl, style: 'Hyperlink', font: 'Arial', size: 22 }),
+              new TextRun({ text: 'Fuente: ', bold: true }),
+              new TextRun({ text: sourceUrl, style: 'Hyperlink' }),
             ],
           })
         );
@@ -551,34 +543,33 @@ function App() {
     : fuenteEspecifica
       ? `No se encontraron noticias en ${nombreFuenteSeleccionada} para esta busqueda.`
       : undefined;
-  const fechaActual = new Intl.DateTimeFormat('es-ES', { dateStyle: 'full' }).format(new Date());
+
+  const breakingHeadlines = useMemo(() => {
+    const now = Date.now();
+    return noticias
+      .filter((item) => {
+        const time = new Date(item?.pubDate || '').getTime();
+        if (Number.isNaN(time)) return false;
+        return now - time <= 2 * 60 * 60 * 1000;
+      })
+      .map((item) => item?.title)
+      .filter(Boolean)
+      .slice(0, 6);
+  }, [noticias]);
+
+  const sourceLabel = usarRSS
+    ? 'RSS DIRECTO'
+    : fuenteEspecifica
+      ? (NOMBRES_FUENTES[fuenteEspecifica] || fuenteEspecifica).toUpperCase()
+      : 'NEWSDATA';
 
   return (
-    <Container maxWidth="lg" className="app-shell">
-      <header className="hero-panel">
-        <Stack spacing={1.4}>
-          <Chip
-            label={fechaActual}
-            color="primary"
-            variant="outlined"
-            sx={{ width: 'fit-content', bgcolor: 'rgba(255, 255, 255, 0.75)' }}
-          />
+    <Box className="newsroom-page">
+      <Header sourceLabel={sourceLabel} />
+      <BreakingNewsBanner headlines={breakingHeadlines} />
 
-          <Typography component="h1" variant="h2" sx={{ color: 'primary.main', lineHeight: 1.05 }}>
-            Radar Diario
-          </Typography>
-
-          <Typography variant="h4" sx={{ color: 'text.primary', lineHeight: 1.15 }}>
-            Buscador de Noticias
-          </Typography>
-
-          <Typography variant="body1" sx={{ color: 'text.secondary', maxWidth: 760 }}>
-            Descubre titulares en tiempo real, filtra por fuente o categoria y arma un boletin listo para compartir con tu equipo.
-          </Typography>
-        </Stack>
-      </header>
-
-      <Box className="surface-panel">
+      <Container maxWidth="lg" className="newsroom-main">
+        <Box className="search-strip">
         <Formulario
           query={query}
           onChangeQuery={handleChangeQuery}
@@ -607,9 +598,9 @@ function App() {
             setFuenteEspecifica(null);
           }}
         />
-      </Box>
+        </Box>
 
-      <Box className="surface-panel news-grid-enter" sx={{ mt: 2.2 }}>
+        <Box className="news-section">
         <ListadoNoticias
           noticias={noticias}
           loading={loading}
@@ -622,25 +613,43 @@ function App() {
           hasMore={hasMoreActivo}
           query={query}
           emptyMessage={mensajeSinResultados}
-          fuenteActiva={fuenteActiva}
+          onSuggestionSearch={handleQuickSearch}
+          onClearQuery={() => handleChangeQuery('')}
+          fuenteActiva={usarRSS ? 'rss' : 'newsdata'}
           selectedNews={selectedNews}
           onToggleSelect={toggleNewsSelection}
         />
+        </Box>
+
+        <FloatingCart
+          selectedCount={selectedNews.length}
+          isLoading={isGeneratingReport}
+          onGenerate={() => handleGenerateReport(selectedNews)}
+          onClearSelection={() => setSelectedNews([])}
+        />
+
+        <Snackbar open={Boolean(reportError)} autoHideDuration={3500} onClose={() => setReportError('')}>
+          <Alert severity="error" onClose={() => setReportError('')} sx={{ width: '100%' }}>
+            {reportError}
+          </Alert>
+        </Snackbar>
+      </Container>
+
+      <Box component="footer" className="newsroom-footer">
+        <Box className="masthead-double-rule newsroom-footer-rule">
+          <Box className="masthead-double-rule-primary" />
+          <Box className="masthead-double-rule-secondary" />
+        </Box>
+
+        <Divider sx={{ mb: 1.2 }} />
+
+        <Typography className="footer-meta">CUBAPRESS · Edicion Digital · © 2026</Typography>
+        <Typography className="footer-meta">Desarrollado por Clavisoft · clavisoft.vercel.app</Typography>
+        <Typography className="footer-meta">Fuentes: NewsData.io · TheNewsAPI · RSS Directo</Typography>
+
+        <Divider sx={{ mt: 1.2 }} />
       </Box>
-
-      <FloatingCart
-        selectedCount={selectedNews.length}
-        isLoading={isGeneratingReport}
-        onGenerate={() => handleGenerateReport(selectedNews)}
-        onClearSelection={clearSelectedNews}
-      />
-
-      <Snackbar open={Boolean(reportError)} autoHideDuration={3500} onClose={() => setReportError('')}>
-        <Alert severity="error" onClose={() => setReportError('')} sx={{ width: '100%' }}>
-          {reportError}
-        </Alert>
-      </Snackbar>
-    </Container>
+    </Box>
   );
 }
 
