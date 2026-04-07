@@ -12,6 +12,7 @@
 body {
   margin: 0;
   color: var(--news-ink);
+  overflow-x: hidden;
 }
 
 #root {
@@ -39,6 +40,7 @@ body {
   padding: 0 14px;
   border-top: 1px solid rgba(232, 200, 74, 0.14);
   border-bottom: 1px solid rgba(232, 200, 74, 0.14);
+  flex-wrap: wrap;
 }
 
 .mono-meta {
@@ -47,11 +49,17 @@ body {
   letter-spacing: 0.06em;
   text-transform: uppercase;
   opacity: 0.88;
+  min-width: 0;
 }
 
 .mono-meta-right {
   text-align: right;
   opacity: 0.8;
+  margin-left: auto;
+  max-width: 52%;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .newsroom-masthead {
@@ -109,6 +117,7 @@ body {
   display: flex;
   align-items: center;
   border-bottom: 1px solid #8f2a21;
+  overflow: hidden;
 }
 
 .breaking-tag {
@@ -167,6 +176,7 @@ body {
   background: var(--news-paper);
   border: 1px solid var(--news-divider);
   padding: 10px;
+  overflow: hidden;
 }
 
 .newsroom-search-input {
@@ -205,6 +215,7 @@ body {
   border: 1px solid var(--news-divider);
   background: var(--news-paper);
   padding: 10px;
+  overflow: hidden;
 }
 
 .section-title {
@@ -258,6 +269,7 @@ body {
   letter-spacing: 0.08em;
   text-transform: uppercase;
   margin: 3px 0;
+  word-break: break-word;
 }
 
 @keyframes marquee {
@@ -283,6 +295,7 @@ body {
 @media (max-width: 900px) {
   .newsroom-main {
     padding-top: 12px;
+    padding-bottom: 104px;
   }
 
   .newsroom-topbar {
@@ -293,8 +306,23 @@ body {
     min-height: 38px;
   }
 
+  .mono-meta,
+  .mono-meta-right {
+    width: 100%;
+    max-width: 100%;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
   .mono-meta-right {
     text-align: left;
+    margin-left: 0;
+  }
+
+  .search-strip,
+  .news-section {
+    padding: 8px;
   }
 }
 
@@ -312,6 +340,15 @@ body {
     font-size: 0.65rem;
   }
 
+  .breaking-banner .breaking-tag:last-child {
+    display: none;
+  }
+
+  .breaking-item {
+    padding: 0 10px;
+    font-size: 0.66rem;
+  }
+
   .newsroom-main {
     padding-bottom: 112px;
   }
@@ -319,5 +356,10 @@ body {
   .news-list-order {
     width: 44px;
     font-size: 1.35rem;
+  }
+
+  .footer-meta {
+    font-size: 0.62rem;
+    letter-spacing: 0.05em;
   }
 }

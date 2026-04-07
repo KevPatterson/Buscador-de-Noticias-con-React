@@ -126,6 +126,7 @@ const Noticia = ({ noticia, vista, index = 0, selectedNews = [], onToggleSelect 
                     sx={{
                         display: 'flex',
                         alignItems: { xs: 'flex-start', md: 'center' },
+                        flexWrap: { xs: 'wrap', md: 'nowrap' },
                         gap: { xs: 1.2, md: 2 },
                         borderBottom: '1px solid',
                         borderColor: 'divider',
@@ -148,7 +149,17 @@ const Noticia = ({ noticia, vista, index = 0, selectedNews = [], onToggleSelect 
                         </Typography>
                     </Box>
 
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, ml: 'auto', flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+                    <Box
+                        sx={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: 1,
+                            ml: { xs: 0, md: 'auto' },
+                            width: { xs: '100%', md: 'auto' },
+                            flexWrap: 'wrap',
+                            justifyContent: { xs: 'flex-start', md: 'flex-end' },
+                        }}
+                    >
                         {fuenteCubana && (
                             <Chip
                                 label="Fuente cubana"
@@ -168,7 +179,7 @@ const Noticia = ({ noticia, vista, index = 0, selectedNews = [], onToggleSelect 
                             color="primary"
                             size="small"
                             onClick={handleSelectClick}
-                            sx={{ minWidth: 122 }}
+                            sx={{ minWidth: { xs: 0, md: 122 } }}
                         >
                             {isSelected ? 'Seleccionada' : 'Seleccionar'}
                         </Button>

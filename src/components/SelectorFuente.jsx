@@ -16,7 +16,7 @@ const SelectorFuente = ({ value, onChange, onClear }) => {
         alignItems: 'center',
         gap: 1,
         width: { xs: '100%', md: '280px' },
-        maxWidth: 280,
+        maxWidth: { xs: '100%', md: 280 },
         p: 0.4,
         borderRadius: 1,
         bgcolor: 'background.default',
