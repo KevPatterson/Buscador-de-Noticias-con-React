@@ -35,13 +35,15 @@ const FloatingCart = ({ selectedCount, isLoading, onGenerate, onClearSelection }
       elevation={0}
       sx={{
         position: 'fixed',
-        right: { xs: 12, sm: 24 },
-        bottom: { xs: 12, sm: 24 },
+        right: { xs: 8, sm: 24 },
+        bottom: { xs: 8, sm: 24 },
         zIndex: 1200,
-        px: 1.6,
-        py: 1.25,
+        px: { xs: 1.1, sm: 1.6 },
+        py: { xs: 0.95, sm: 1.25 },
         borderRadius: 1,
-        minWidth: { xs: 260, sm: 310 },
+        width: { xs: 'calc(100vw - 16px)', sm: 'auto' },
+        minWidth: { sm: 310 },
+        maxWidth: { xs: 480, sm: 'none' },
         border: '1px solid',
         borderColor: 'divider',
         backgroundColor: 'background.paper',
@@ -57,7 +59,15 @@ const FloatingCart = ({ selectedCount, isLoading, onGenerate, onClearSelection }
         },
       }}
     >
-      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1.4 }}>
+      <Box
+        sx={{
+          display: 'flex',
+          alignItems: { xs: 'stretch', sm: 'center' },
+          justifyContent: 'space-between',
+          flexDirection: { xs: 'column', sm: 'row' },
+          gap: { xs: 0.85, sm: 1.4 },
+        }}
+      >
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
           <Badge
             badgeContent={selectedCount}
@@ -70,20 +80,31 @@ const FloatingCart = ({ selectedCount, isLoading, onGenerate, onClearSelection }
           <Typography
             variant="body2"
             color="text.secondary"
-            sx={{ fontFamily: '"IBM Plex Mono", monospace', letterSpacing: '0.08em', textTransform: 'uppercase' }}
+            sx={{
+              fontFamily: '"IBM Plex Mono", monospace',
+              letterSpacing: '0.08em',
+              textTransform: 'uppercase',
+              fontSize: { xs: '0.65rem', sm: '0.73rem' },
+            }}
           >
             Noticias seleccionadas
           </Typography>
         </Box>
 
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.6 }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.6, width: { xs: '100%', sm: 'auto' } }}>
           <Button
             variant="contained"
             color="primary"
             startIcon={isLoading ? <CircularProgress size={16} color="inherit" /> : <DownloadIcon />}
             onClick={onGenerate}
             disabled={isLoading || selectedCount === 0}
-            sx={{ whiteSpace: 'nowrap', px: 1.8, minWidth: 176 }}
+            sx={{
+              whiteSpace: 'nowrap',
+              px: { xs: 1.1, sm: 1.8 },
+              minWidth: { xs: 0, sm: 176 },
+              flexGrow: { xs: 1, sm: 0 },
+              fontSize: { xs: '0.66rem', sm: '0.72rem' },
+            }}
           >
             {isLoading ? 'Generando...' : 'Generar Boletin en Word'}
           </Button>
