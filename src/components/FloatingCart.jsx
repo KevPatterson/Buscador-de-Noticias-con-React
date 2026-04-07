@@ -32,27 +32,46 @@ const FloatingCart = ({ selectedCount, isLoading, onGenerate, onClearSelection }
 
   return (
     <Paper
-      elevation={8}
+      elevation={0}
       sx={{
         position: 'fixed',
         right: { xs: 12, sm: 24 },
         bottom: { xs: 12, sm: 24 },
         zIndex: 1200,
-        px: 2,
-        py: 1.55,
-        borderRadius: 4,
+        px: 1.6,
+        py: 1.25,
+        borderRadius: 1,
         minWidth: { xs: 260, sm: 310 },
-        border: '1px solid rgba(18, 38, 58, 0.12)',
-        background: 'linear-gradient(130deg, rgba(255, 253, 248, 0.95) 0%, rgba(237, 244, 248, 0.95) 100%)',
-        backdropFilter: 'blur(8px)',
+        border: '1px solid',
+        borderColor: 'divider',
+        backgroundColor: 'background.paper',
+        boxShadow: '0 14px 24px rgba(0, 0, 0, 0.32)',
+        '&::before': {
+          content: '""',
+          position: 'absolute',
+          left: 0,
+          right: 0,
+          top: 0,
+          height: 2,
+          backgroundColor: 'primary.main',
+        },
       }}
     >
-      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 2 }}>
+      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1.4 }}>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-          <Badge badgeContent={selectedCount} color="secondary" max={99}>
-            <ArticleIcon />
+          <Badge
+            badgeContent={selectedCount}
+            color="secondary"
+            max={99}
+            sx={{ '& .MuiBadge-badge': { fontFamily: '"IBM Plex Mono", monospace' } }}
+          >
+            <ArticleIcon sx={{ color: 'primary.main' }} />
           </Badge>
-          <Typography variant="body2" color="text.secondary">
+          <Typography
+            variant="body2"
+            color="text.secondary"
+            sx={{ fontFamily: '"IBM Plex Mono", monospace', letterSpacing: '0.08em', textTransform: 'uppercase' }}
+          >
             Noticias seleccionadas
           </Typography>
         </Box>
@@ -60,11 +79,11 @@ const FloatingCart = ({ selectedCount, isLoading, onGenerate, onClearSelection }
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.6 }}>
           <Button
             variant="contained"
-            color="secondary"
+            color="primary"
             startIcon={isLoading ? <CircularProgress size={16} color="inherit" /> : <DownloadIcon />}
             onClick={onGenerate}
             disabled={isLoading || selectedCount === 0}
-            sx={{ whiteSpace: 'nowrap', px: 1.8 }}
+            sx={{ whiteSpace: 'nowrap', px: 1.8, minWidth: 176 }}
           >
             {isLoading ? 'Generando...' : 'Generar Boletin en Word'}
           </Button>
@@ -77,7 +96,17 @@ const FloatingCart = ({ selectedCount, isLoading, onGenerate, onClearSelection }
                 onClick={onClearSelection}
                 disabled={isLoading || selectedCount === 0}
                 size="small"
-                sx={{ border: '1px solid', borderColor: 'rgba(200, 85, 61, 0.35)' }}
+                sx={{
+                  border: '1px solid',
+                  borderColor: 'divider',
+                  borderRadius: 1,
+                  color: 'text.secondary',
+                  '&:hover': {
+                    borderColor: 'secondary.main',
+                    color: 'secondary.main',
+                    backgroundColor: 'rgba(192, 57, 43, 0.08)',
+                  },
+                }}
               >
                 <CloseIcon fontSize="small" />
               </IconButton>
