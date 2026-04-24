@@ -5,6 +5,7 @@
   "type": "module",
   "description": "Agregador de noticias con enfoque en medios cubanos",
   "author": "Clavisoft",
+  "license": "MIT",
   "scripts": {
     "dev": "vite",
     "build": "vite build",
