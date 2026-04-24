@@ -1,8 +1,10 @@
 {
-  "name": "noticias_api",
+  "name": "cubapress-news",
   "private": true,
-  "version": "0.0.0",
+  "version": "1.0.0",
   "type": "module",
+  "description": "Agregador de noticias con enfoque en medios cubanos",
+  "author": "Clavisoft",
   "scripts": {
     "dev": "vite",
     "build": "vite build",

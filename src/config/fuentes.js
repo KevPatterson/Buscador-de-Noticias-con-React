@@ -50,7 +50,6 @@ export const NOMBRES_FUENTES = {
   'infobae.com': 'Infobae',
 };
 
-// Dominios detectados como no soportados por NewsData.io (422 UnsupportedFilter).
 export const DOMINIOS_NO_NEWDATA = [
   'bc.gob.cu',
   'cubagob.cu',

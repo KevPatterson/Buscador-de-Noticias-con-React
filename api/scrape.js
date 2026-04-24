@@ -97,14 +97,12 @@ const cutAtMarker = (value = '', markers = []) => {
 const cleanupProxyText = (targetUrl, rawText = '') => {
   let text = rawText;
 
-  // Quita cabecera tipica de r.jina.ai
   text = text
     .replace(/(^|\n)Title:\s.*?(\n|$)/g, '\n')
     .replace(/(^|\n)URL Source:\s.*?(\n|$)/g, '\n')
     .replace(/(^|\n)Warning:\s.*?(\n|$)/g, '\n')
     .replace(/(^|\n)Markdown Content:\s*(\n|$)/g, '\n');
 
-  // Quita lineas de menu/listado que empiezan con bullets markdown
   text = text
     .split('\n')
     .filter((line) => {
@@ -118,7 +116,6 @@ const cleanupProxyText = (targetUrl, rawText = '') => {
 
   text = stripLeadingBoilerplate(text);
 
-  // Limpieza especifica para holanews: recorta a partir de la linea dateline y corta secciones relacionadas.
   let host = '';
   try {
     host = new URL(targetUrl).hostname.toLowerCase();
@@ -144,7 +141,6 @@ const cleanupProxyText = (targetUrl, rawText = '') => {
   }
 
   if (host.includes('efe.com')) {
-    // EFE suele inyectar consentimiento/cookies y widgets antes/despues del cuerpo.
     const datelineStart = text.match(/[A-ZÁÉÍÓÚÑa-záéíóúñ\s.'-]+\(EFE\)\.-/);
     if (datelineStart?.index >= 0) {
       text = text.slice(datelineStart.index);
@@ -257,7 +253,7 @@ const extractFromJsonLd = ($) => {
       const parsed = JSON.parse(raw);
       walkJson(parsed, candidates);
     } catch {
-      // Ignorar bloques JSON-LD invalidos.
+      return;
     }
   });
 
