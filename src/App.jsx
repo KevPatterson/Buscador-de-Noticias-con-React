@@ -307,7 +307,7 @@ function App() {
         if (exists) return prev;
         return [...prev, enriched];
       });
-    } catch (err) {
+    } catch {
       // en fallo, añadir la noticia sin contenido extraido
       setSelectedNews((prev) => {
         const exists = prev.some((item) => (item.link || item.title) === itemKey);
