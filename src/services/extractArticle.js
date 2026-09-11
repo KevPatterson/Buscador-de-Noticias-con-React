@@ -2,16 +2,18 @@
  * Extrae el contenido limpio de un artículo vía la serverless function.
  * Si falla, devuelve el description del RSS como fallback.
  */
-export const extractArticle = async (url, descriptionFallback = "") => {
+import cleanArticle from './cleanArticle.js';
+
+export const extractArticle = async (url, descriptionFallback = '') => {
   try {
     const res = await fetch(`/api/extract-article?url=${encodeURIComponent(url)}`);
-import cleanArticle from './cleanArticle';
+    if (res && res.ok) {
       const data = await res.json();
       if (data && data.contenido && data.contenido.trim().length > 80) {
         return {
           contenido: cleanArticle(data.contenido),
-          autor: data.autor || "",
-          titulo: data.titulo || "",
+          autor: data.autor || '',
+          titulo: data.titulo || '',
           extraido: true,
         };
       }
@@ -20,29 +22,29 @@ import cleanArticle from './cleanArticle';
     // Fallback: intentar el endpoint /api/scrape que ya existe en el proyecto
     try {
       const res2 = await fetch(`/api/scrape?url=${encodeURIComponent(url)}`);
-      if (res2.ok) {
+      if (res2 && res2.ok) {
         const payload = await res2.json();
         if (payload?.fullText && payload.fullText.trim().length > 80) {
           return {
             contenido: cleanArticle(payload.fullText),
-            autor: "",
+            autor: '',
             extraido: true,
           };
         }
       }
-    } catch {
+    } catch (e) {
       // ignorar
     }
 
     return {
       contenido: cleanArticle(limpiarDescripcionRSS(descriptionFallback)),
-      autor: "",
+      autor: '',
       extraido: false,
     };
-  } catch {
+  } catch (e) {
     return {
       contenido: limpiarDescripcionRSS(descriptionFallback),
-      autor: "",
+      autor: '',
       extraido: false,
     };
   }
