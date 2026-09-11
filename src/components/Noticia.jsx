@@ -94,8 +94,10 @@ const Noticia = ({ noticia, vista, index = 0, selectedNews = [], onToggleSelect,
     const fechaRelativa = formatRelativeDate(noticia.pubDate);
     const fuenteCubana = esFuenteCubana(url);
     const key = noticia.link || noticia.title;
-    const isSelected = selectedNews.some((item) => (item.link || item.title) === key);
+    const selectedEntry = selectedNews.find((item) => (item.link || item.title) === key);
+    const isSelected = Boolean(selectedEntry);
     const estaExtrayendo = Boolean(extrayendo?.[key]);
+    const contenidoExtraido = Boolean(selectedEntry?._contenidoExtraido === true);
 
     useEffect(() => {
         if (!copiado) return;
@@ -168,6 +170,15 @@ const Noticia = ({ noticia, vista, index = 0, selectedNews = [], onToggleSelect,
                                 size="small"
                                 color="secondary"
                             />
+                        )}
+                        {isSelected && (
+                            contenidoExtraido ? (
+                                <Chip label="✓ Contenido completo" size="small" color="success" sx={{ ml: 1 }} />
+                            ) : (
+                                <Tooltip title="No se pudo extraer el artículo completo. Se usó el resumen disponible.">
+                                    <Chip label="⚠ Resumen RSS" size="small" color="warning" sx={{ ml: 1 }} />
+                                </Tooltip>
+                            )
                         )}
 
                         <Tooltip title="Copiar titular">
