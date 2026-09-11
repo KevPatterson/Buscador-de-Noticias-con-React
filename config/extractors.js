@@ -79,12 +79,36 @@ export const DOMAIN_RULES = {
   '5septiembre.cu': {
     preferScrape: true,
     removeSelectors: ['.widget', '.sidebar', '.related-posts', '.post-meta', '.author-box', '.share', 'header', 'footer'],
-    contentSelectors: ['article', '.entry-content', '.post-content', '#content', '.article-content', '.single-post .content'],
+    contentSelectors: [
+      'article',
+      '.entry-content',
+      '.post-content',
+      '#content',
+      '.article-content',
+      '.single-post .content',
+      '.post',
+      '.contenido',
+      '.post-inner',
+      '.td-post-content',
+      '[itemprop="articleBody"]',
+    ],
   },
   'radioreloj.cu': {
     preferScrape: true,
     removeSelectors: ['.site-footer', '.cookie', '.share', '.social', '.ads', '.banner', 'header', 'footer', '.suscribete'],
-    contentSelectors: ['article', '.entry-content', '.post-content', '#main', '.article-body', '.noticia', '.news-content'],
+    contentSelectors: [
+      'article',
+      '.entry-content',
+      '.post-content',
+      '#main',
+      '.article-body',
+      '.noticia',
+      '.news-content',
+      '.nota',
+      '.nota-contenido',
+      '.content-article',
+      '[itemprop="articleBody"]',
+    ],
   },
   // Otros dominios problemáticos pueden añadirse aquí con selectores afinados
 };
