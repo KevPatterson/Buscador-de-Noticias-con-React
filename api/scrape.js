@@ -211,6 +211,8 @@ const NOISE_SELECTORS = [
   '.promo',
   '.cookie',
   '[id*="ad-"]',
+  // Avoid matching ids that merely contain 'ad-' inside words (e.g. tdb-autoload-article)
+  '[id^="ad-"]',
   '[class*=" ad-"]',
   '[class*="ads"]',
   '[class*="banner"]',

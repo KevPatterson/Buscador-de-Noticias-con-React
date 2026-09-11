@@ -5,11 +5,11 @@
 export const extractArticle = async (url, descriptionFallback = "") => {
   try {
     const res = await fetch(`/api/extract-article?url=${encodeURIComponent(url)}`);
-    if (res.ok) {
+import cleanArticle from './cleanArticle';
       const data = await res.json();
       if (data && data.contenido && data.contenido.trim().length > 80) {
         return {
-          contenido: data.contenido,
+          contenido: cleanArticle(data.contenido),
           autor: data.autor || "",
           titulo: data.titulo || "",
           extraido: true,
@@ -24,7 +24,7 @@ export const extractArticle = async (url, descriptionFallback = "") => {
         const payload = await res2.json();
         if (payload?.fullText && payload.fullText.trim().length > 80) {
           return {
-            contenido: payload.fullText,
+            contenido: cleanArticle(payload.fullText),
             autor: "",
             extraido: true,
           };
@@ -35,7 +35,7 @@ export const extractArticle = async (url, descriptionFallback = "") => {
     }
 
     return {
-      contenido: limpiarDescripcionRSS(descriptionFallback),
+      contenido: cleanArticle(limpiarDescripcionRSS(descriptionFallback)),
       autor: "",
       extraido: false,
     };

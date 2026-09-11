@@ -17,6 +17,7 @@ import useNoticias from './hooks/useNoticias.js';
 import useRSS from './hooks/useRSS.js';
 import './styles.css';
 import { extractArticle } from './services/extractArticle.js';
+import cleanArticle from './services/cleanArticle.js';
 
 const CATEGORIAS = [
   { value: 'top', label: 'General' },
@@ -562,7 +563,7 @@ function App() {
 
       filteredNews.forEach((news, index) => {
         const title = news.title || `Noticia ${index + 1}`;
-        const content = news.reportText || 'Sin contenido disponible.';
+        const content = cleanArticle(news.reportText || 'Sin contenido disponible.');
         const sourceUrl = news.link || 'Sin URL de fuente';
 
         children.push(
