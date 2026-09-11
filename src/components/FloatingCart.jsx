@@ -27,8 +27,10 @@ const CloseIcon = (props) => (
   </SvgIcon>
 );
 
-const FloatingCart = ({ selectedCount, isLoading, onGenerate, onClearSelection }) => {
+const FloatingCart = ({ selectedCount, isLoading, hasPendingExtraction = false, onGenerate, onClearSelection }) => {
   if (selectedCount <= 0) return null;
+
+  const buttonDisabled = isLoading || hasPendingExtraction || selectedCount === 0;
 
   return (
     <Paper
@@ -95,9 +97,9 @@ const FloatingCart = ({ selectedCount, isLoading, onGenerate, onClearSelection }
           <Button
             variant="contained"
             color="primary"
-            startIcon={isLoading ? <CircularProgress size={16} color="inherit" /> : <DownloadIcon />}
+            startIcon={isLoading || hasPendingExtraction ? <CircularProgress size={16} color="inherit" /> : <DownloadIcon />}
             onClick={onGenerate}
-            disabled={isLoading || selectedCount === 0}
+            disabled={buttonDisabled}
             sx={{
               whiteSpace: 'nowrap',
               px: { xs: 1.1, sm: 1.8 },
@@ -106,7 +108,7 @@ const FloatingCart = ({ selectedCount, isLoading, onGenerate, onClearSelection }
               fontSize: { xs: '0.66rem', sm: '0.72rem' },
             }}
           >
-            {isLoading ? 'Generando...' : 'Generar Boletin en Word'}
+            {isLoading ? 'Generando...' : hasPendingExtraction ? 'Preparando noticias...' : 'Generar Boletin en Word'}
           </Button>
 
           <Tooltip title="Descartar seleccionadas">
@@ -115,7 +117,7 @@ const FloatingCart = ({ selectedCount, isLoading, onGenerate, onClearSelection }
                 color="error"
                 aria-label="Descartar todas las noticias seleccionadas"
                 onClick={onClearSelection}
-                disabled={isLoading || selectedCount === 0}
+                disabled={isLoading || hasPendingExtraction || selectedCount === 0}
                 size="small"
                 sx={{
                   border: '1px solid',

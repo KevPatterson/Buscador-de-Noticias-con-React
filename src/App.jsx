@@ -459,8 +459,11 @@ function App() {
     return source.sort((a, b) => b.length - a.length)[0];
   };
 
+  const hasPendingExtraction = Object.keys(extrayendo).length > 0;
+
   const handleGenerateReport = async (newsList) => {
     if (!Array.isArray(newsList) || newsList.length === 0) return;
+    if (hasPendingExtraction) return;
 
     setIsGeneratingReport(true);
     setReportError('');
@@ -722,6 +725,7 @@ function App() {
         <FloatingCart
           selectedCount={selectedNews.length}
           isLoading={isGeneratingReport}
+          hasPendingExtraction={hasPendingExtraction}
           onGenerate={() => handleGenerateReport(selectedNews)}
           onClearSelection={() => setSelectedNews([])}
         />

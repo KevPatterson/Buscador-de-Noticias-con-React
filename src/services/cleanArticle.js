@@ -1,16 +1,15 @@
 // Utilidad para limpiar textos de artículos antes de incluirlos en el boletín
 export default function cleanArticle(text = '') {
   if (!text) return '';
-  let t = text;
 
-  // Normalizar espacios y saltos
-  t = t.replace(/\r\n|\r/g, '\n');
-  t = t.replace(/&nbsp;|\u00a0/g, ' ');
-  t = t.replace(/\s{2,}/g, ' ');
+  let t = text
+    .replace(/\r\n|\r/g, '\n')
+    .replace(/<br\s*\/?>/gi, '\n')
+    .replace(/<\/p\s*>|<p\s*>/gi, '\n\n')
+    .replace(/&nbsp;|\u00a0/g, ' ')
+    .replace(/\u2019/g, "'")
+    .replace(/\u201c|\u201d/g, '"');
 
-  // Quitar líneas de copyright, powered by, suscripciones y avisos de cookies
-  const lines = t.split('\n');
-  const cleaned = [];
   const skipPatterns = [
     /todos los derechos reservados/i,
     /prohibida la reproducci[oó]n/i,
@@ -25,27 +24,57 @@ export default function cleanArticle(text = '') {
     /^\s*\*{3,}/,
   ];
 
-  for (let line of lines) {
-    const s = line.trim();
-    if (!s) continue;
-    if (skipPatterns.some((p) => p.test(s))) continue;
-    // eliminar bloques repetidos con 'Suscríbete' u 'Opinión' al final
-    if (/suscr[íi]bete|suscribete|suscr[ií]bete gratis/i.test(s)) continue;
-    cleaned.push(s);
-  }
+  const splitParagraphs = (candidate = '') => {
+    const lines = candidate
+      .split(/\n+/)
+      .map((line) => line.replace(/\s+/g, ' ').trim())
+      .filter(Boolean);
 
-  let out = cleaned.join('\n\n');
+    if (lines.length <= 1) return [candidate.trim()];
 
-  // Recortar secciones largas de navegación al final (marcadores comunes)
+    const result = [];
+    let current = lines[0];
+
+    for (let i = 1; i < lines.length; i += 1) {
+      const prev = lines[i - 1];
+      const next = lines[i];
+      const prevEndsSentence = /[.!?]$/.test(prev);
+      const nextStartsSentence = /^[A-ZÁÉÍÓÚÑ0-9\("\[]/.test(next);
+      const likelyParagraphBreak = prevEndsSentence && nextStartsSentence;
+
+      if (likelyParagraphBreak) {
+        result.push(current.trim());
+        current = next;
+      } else {
+        current = `${current} ${next}`.trim();
+      }
+    }
+
+    if (current.trim()) result.push(current.trim());
+    return result.filter(Boolean);
+  };
+
+  const paragraphs = t
+    .split(/\n\s*\n+/)
+    .flatMap((block) => splitParagraphs(block))
+    .map((paragraph) => paragraph.replace(/\s+/g, ' ').trim())
+    .filter((paragraph) => {
+      if (!paragraph) return false;
+      if (skipPatterns.some((pattern) => pattern.test(paragraph))) return false;
+      if (/suscr[íi]bete|suscribete|suscr[ií]bete gratis/i.test(paragraph)) return false;
+      return true;
+    });
+
+  let out = paragraphs.join('\n\n');
+
   const endMarkers = ['Previous article', 'Next article', 'Historias Relacionadas', 'Latest stories', 'Subscribe', 'All Rights Reserved', 'Suscríbete', 'Suscribete', 'Leer más', 'Leer mas'];
-  for (const m of endMarkers) {
-    const idx = out.toLowerCase().indexOf(m.toLowerCase());
+  for (const marker of endMarkers) {
+    const idx = out.toLowerCase().indexOf(marker.toLowerCase());
     if (idx > 100) {
       out = out.slice(0, idx).trim();
+      break;
     }
   }
 
-  // Limpiar exceso de espacios en líneas y devolver
-  out = out.replace(/\n{3,}/g, '\n\n').trim();
-  return out;
+  return out.replace(/\n{3,}/g, '\n\n').trim();
 }
