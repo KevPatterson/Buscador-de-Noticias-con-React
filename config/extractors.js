@@ -57,6 +57,35 @@ export const DOMAIN_RULES = {
     removeSelectors: ['.pl-ad', '.related-posts', '.elementor-widget-container .social'],
     contentSelectors: ['article', '.entry-content', '.post-content', '#main'],
   },
+  // Sitios que redirigen o usan plantillas de agencias
+  'noticiargentina.com.ar': {
+    preferScrape: true,
+    removeSelectors: [
+      '.contenido-patrocinado',
+      '.contenido-patrocinado ',
+      '.Contenido patrocinado',
+      '.contenido-patrocinado',
+      '.pixel',
+      '.advertisement',
+      '.ads',
+      '.share',
+      '.site-footer',
+      'header',
+      'footer',
+      '.breadcrumb',
+    ],
+    contentSelectors: ['article', '.entry-content', '.post-content', '#main', '.article-body', '.article-content'],
+  },
+  '5septiembre.cu': {
+    preferScrape: true,
+    removeSelectors: ['.widget', '.sidebar', '.related-posts', '.post-meta', '.author-box', '.share', 'header', 'footer'],
+    contentSelectors: ['article', '.entry-content', '.post-content', '#content', '.article-content', '.single-post .content'],
+  },
+  'radioreloj.cu': {
+    preferScrape: true,
+    removeSelectors: ['.site-footer', '.cookie', '.share', '.social', '.ads', '.banner', 'header', 'footer', '.suscribete'],
+    contentSelectors: ['article', '.entry-content', '.post-content', '#main', '.article-body', '.noticia', '.news-content'],
+  },
   // Otros dominios problemáticos pueden añadirse aquí con selectores afinados
 };
 

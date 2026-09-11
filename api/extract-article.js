@@ -117,6 +117,38 @@ export default async function handler(req, res) {
     const domainRule = Object.keys(DOMAIN_RULES).find((d) => host === d || host.endsWith(`.${d}`));
     const domainConfig = domainRule ? DOMAIN_RULES[domainRule] : null;
 
+    // Si el dominio prefiere usar el scraper interno, intentar eso primero
+    if (domainConfig?.preferScrape) {
+      try {
+        const scrapeMod = await import('../api/scrape.js');
+        const mockReq = { query: { url: urlObj.href } };
+        let captured;
+        const mockRes = {
+          _status: 200,
+          status(code) { this._status = code; return this; },
+          json(obj) { captured = obj; },
+          setHeader() {},
+        };
+        await scrapeMod.default(mockReq, mockRes);
+        const proxyText = captured?.fullText || '';
+        const cleanedProxy = limpiarTexto(proxyText || '');
+        if (cleanedProxy.length >= 200) {
+          res.setHeader("Cache-Control", "s-maxage=600, stale-while-revalidate=60");
+          return res.status(200).json({
+            titulo: '',
+            contenido: cleanedProxy,
+            extracto: '',
+            autor: '',
+            nombreSitio: urlObj.hostname,
+            idioma: 'es',
+            longitud: cleanedProxy.length,
+          });
+        }
+      } catch {
+        // ignore scraper errors and continue to Readability
+      }
+    }
+
     // Combine global and domain-specific selectors to remove
     const removeSelectors = [...SELECTORES_BASURA];
     if (domainConfig?.removeSelectors) removeSelectors.push(...domainConfig.removeSelectors);
