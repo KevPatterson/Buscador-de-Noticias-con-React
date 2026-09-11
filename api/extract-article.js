@@ -1,5 +1,6 @@
 import { Readability } from "@mozilla/readability";
 import { JSDOM } from "jsdom";
+import { PROXIES, DOMAIN_RULES } from '../config/extractors.js';
 
 // Selectores de elementos a eliminar ANTES de pasarle el DOM a Readability
 const SELECTORES_BASURA = [
@@ -110,7 +111,16 @@ export default async function handler(req, res) {
 
     const document = dom.window.document;
 
-    SELECTORES_BASURA.forEach((selector) => {
+    // Aplicar reglas por dominio si existen
+    const host = urlObj.hostname.toLowerCase();
+    const domainRule = Object.keys(DOMAIN_RULES).find((d) => host === d || host.endsWith(`.${d}`));
+    const domainConfig = domainRule ? DOMAIN_RULES[domainRule] : null;
+
+    // Combine global and domain-specific selectors to remove
+    const removeSelectors = [...SELECTORES_BASURA];
+    if (domainConfig?.removeSelectors) removeSelectors.push(...domainConfig.removeSelectors);
+
+    removeSelectors.forEach((selector) => {
       try {
         document.querySelectorAll(selector).forEach((el) => el.remove());
       } catch {
@@ -122,40 +132,89 @@ export default async function handler(req, res) {
       if (el.textContent.trim() === "") el.remove();
     });
 
-    const reader = new Readability(document, {
+    // Si hay selectores de contenido preferido para el dominio, intentar usar solo ese fragmento
+    let readerDoc = document;
+    if (domainConfig?.contentSelectors) {
+      for (const sel of domainConfig.contentSelectors) {
+        try {
+          const node = document.querySelector(sel);
+          if (node && node.textContent && node.textContent.trim().length > 80) {
+            // Crear nuevo DOM con el fragmento para que Readability enfoque allí
+            const fragmentHtml = `<!doctype html><html><body>${node.outerHTML}</body></html>`;
+            const fragDom = new JSDOM(fragmentHtml);
+            readerDoc = fragDom.window.document;
+            break;
+          }
+        } catch {
+          // continuar con siguiente selector
+        }
+      }
+    }
+
+    const reader = new Readability(readerDoc, {
       classesToPreserve: [],
       linkDensityModifier: -0.1,
     });
 
     const article = reader.parse();
 
-    // Si Readability no devuelve contenido útil, intentar proxy de texto plano
+    // Si Readability no devuelve contenido útil, intentar proxies listados en config
     const textoArticulo = article?.textContent?.trim() || '';
     let textoLimpio = '';
 
     if (textoArticulo.length >= 200) {
       textoLimpio = limpiarTexto(textoArticulo);
     } else {
-      // intentar proxy r.jina.ai para obtener versión en texto plano
-      try {
-        const cleanTarget = urlObj.href.replace(/^https?:\/\//i, '');
-        const proxyUrl = `https://r.jina.ai/http://${cleanTarget}`;
-        const pResp = await fetch(proxyUrl, {
-          headers: {
-            'User-Agent': 'Mozilla/5.0 (compatible; NewsletterBot/1.0)',
-            Accept: 'text/plain',
-          },
-          signal: AbortSignal.timeout(8000),
-        });
-        if (pResp.ok) {
-          const rawText = await pResp.text();
-          const cleanedProxy = limpiarTexto(rawText || '');
-          if (cleanedProxy.length >= 200) {
-            textoLimpio = cleanedProxy;
+      const cleanTarget = urlObj.href.replace(/^https?:\/\//i, '');
+      for (const proxy of PROXIES) {
+        try {
+          if (proxy === 'internal:scrape') {
+            // llamar al handler local scrape.js para obtener fullText
+            // import dinámico para evitar cargarlo en entornos donde no existe
+            try {
+              // eslint-disable-next-line import/no-dynamic-require, global-require
+              const scrapeMod = await import('../api/scrape.js');
+              const mockReq = { query: { url: urlObj.href } };
+              let captured;
+              const mockRes = {
+                _status: 200,
+                status(code) { this._status = code; return this; },
+                json(obj) { captured = obj; },
+                setHeader() {},
+              };
+              // Ejecutar handler local
+              // eslint-disable-next-line no-await-in-loop
+              await scrapeMod.default(mockReq, mockRes);
+              const proxyText = captured?.fullText || '';
+              const cleanedProxy = limpiarTexto(proxyText || '');
+              if (cleanedProxy.length >= 200) {
+                textoLimpio = cleanedProxy;
+                break;
+              }
+            } catch {
+              // ignore internal scrape errors
+            }
+          } else {
+            const proxyUrl = `${proxy}${cleanTarget}`;
+            // eslint-disable-next-line no-await-in-loop
+            const pResp = await fetch(proxyUrl, {
+              headers: { 'User-Agent': 'Mozilla/5.0 (compatible; NewsletterBot/1.0)', Accept: 'text/plain' },
+              signal: AbortSignal.timeout(8000),
+            });
+            // eslint-disable-next-line no-await-in-loop
+            if (pResp.ok) {
+              // eslint-disable-next-line no-await-in-loop
+              const rawText = await pResp.text();
+              const cleanedProxy = limpiarTexto(rawText || '');
+              if (cleanedProxy.length >= 200) {
+                textoLimpio = cleanedProxy;
+                break;
+              }
+            }
           }
+        } catch {
+          // probar siguiente proxy
         }
-      } catch {
-        // fallback silencioso
       }
 
       if (!textoLimpio && textoArticulo) {
