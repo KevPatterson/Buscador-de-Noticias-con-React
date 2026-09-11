@@ -80,6 +80,19 @@ const DOC_BLOCKLIST = [
   'appeared first on',
 ];
 
+const DOCX_FONT = 'Arial';
+const DOCX_BODY_SIZE = 24;
+const DOCX_TITLE_SIZE = 32;
+
+const createDocxTextRun = (text, { bold = false, italic = false, size = DOCX_BODY_SIZE, font = DOCX_FONT } = {}) =>
+  new TextRun({
+    text,
+    bold,
+    italic,
+    size,
+    font,
+  });
+
 const normalizeForCompare = (value = '') =>
   value
     .normalize('NFD')
@@ -557,7 +570,7 @@ function App() {
           alignment: AlignmentType.CENTER,
           heading: HeadingLevel.TITLE,
           spacing: { after: 420 },
-          children: [new TextRun({ text: 'Boletin de Noticias', bold: true })],
+          children: [createDocxTextRun('Boletin de Noticias', { bold: true, size: 34 })],
         }),
       ];
 
@@ -568,9 +581,9 @@ function App() {
 
         children.push(
           new Paragraph({
-            text: title,
             heading: HeadingLevel.HEADING_1,
             spacing: { before: 240, after: 140 },
+            children: [createDocxTextRun(title, { bold: true, size: DOCX_TITLE_SIZE })],
           })
         );
 
@@ -578,18 +591,23 @@ function App() {
           if (!block.trim()) return;
           children.push(
             new Paragraph({
-              text: block,
-              spacing: { after: 140 },
+              spacing: { before: 40, after: 120 },
+              children: [createDocxTextRun(block.trim(), { size: DOCX_BODY_SIZE })],
             })
           );
         });
 
         children.push(
           new Paragraph({
-            spacing: { after: 280 },
+            spacing: { before: 80, after: 280 },
             children: [
-              new TextRun({ text: 'Fuente: ', bold: true }),
-              new TextRun({ text: sourceUrl, style: 'Hyperlink' }),
+              createDocxTextRun('Fuente: ', { bold: true, size: DOCX_BODY_SIZE }),
+              new TextRun({
+                text: sourceUrl,
+                style: 'Hyperlink',
+                font: DOCX_FONT,
+                size: DOCX_BODY_SIZE,
+              }),
             ],
           })
         );
