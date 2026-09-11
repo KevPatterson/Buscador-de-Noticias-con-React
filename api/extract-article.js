@@ -129,14 +129,43 @@ export default async function handler(req, res) {
 
     const article = reader.parse();
 
-    if (!article || !article.textContent?.trim()) {
-      return res.status(422).json({
-        error: "No se pudo extraer el contenido del artículo",
-        fallback: true,
-      });
-    }
+    // Si Readability no devuelve contenido útil, intentar proxy de texto plano
+    const textoArticulo = article?.textContent?.trim() || '';
+    let textoLimpio = '';
 
-    const textoLimpio = limpiarTexto(article.textContent);
+    if (textoArticulo.length >= 200) {
+      textoLimpio = limpiarTexto(textoArticulo);
+    } else {
+      // intentar proxy r.jina.ai para obtener versión en texto plano
+      try {
+        const cleanTarget = urlObj.href.replace(/^https?:\/\//i, '');
+        const proxyUrl = `https://r.jina.ai/http://${cleanTarget}`;
+        const pResp = await fetch(proxyUrl, {
+          headers: {
+            'User-Agent': 'Mozilla/5.0 (compatible; NewsletterBot/1.0)',
+            Accept: 'text/plain',
+          },
+          signal: AbortSignal.timeout(8000),
+        });
+        if (pResp.ok) {
+          const rawText = await pResp.text();
+          const cleanedProxy = limpiarTexto(rawText || '');
+          if (cleanedProxy.length >= 200) {
+            textoLimpio = cleanedProxy;
+          }
+        }
+      } catch {
+        // fallback silencioso
+      }
+
+      if (!textoLimpio && textoArticulo) {
+        textoLimpio = limpiarTexto(textoArticulo);
+      }
+
+      if (!textoLimpio) {
+        return res.status(422).json({ error: 'No se pudo extraer el contenido del artículo', fallback: true });
+      }
+    }
 
     res.setHeader("Cache-Control", "s-maxage=600, stale-while-revalidate=60");
 
@@ -147,7 +176,7 @@ export default async function handler(req, res) {
       autor: article.byline?.trim() || "",
       nombreSitio: article.siteName?.trim() || urlObj.hostname,
       idioma: article.lang || "es",
-      longitud: article.length || 0,
+      longitud: textoLimpio.length || article.length || 0,
     });
   } catch (error) {
     if (error.name === "TimeoutError") {
