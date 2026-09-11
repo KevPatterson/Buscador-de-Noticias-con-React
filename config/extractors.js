@@ -93,6 +93,21 @@ export const DOMAIN_RULES = {
       '[itemprop="articleBody"]',
     ],
   },
+  'cubadebate.cu': {
+    preferScrape: true,
+    removeSelectors: ['.tdb_author', '.td-post-featured-image', '.post-meta', '.share', '.related-posts', 'header', 'footer', '.sidebar', '.widget'],
+    contentSelectors: [
+      'article',
+      '.post',
+      '.entry-content',
+      '.post-content',
+      '.single-post .content',
+      '.td-post-content',
+      '.contenido',
+      '[itemprop="articleBody"]',
+      '.article-body',
+    ],
+  },
   'radioreloj.cu': {
     preferScrape: true,
     removeSelectors: ['.site-footer', '.cookie', '.share', '.social', '.ads', '.banner', 'header', 'footer', '.suscribete'],
