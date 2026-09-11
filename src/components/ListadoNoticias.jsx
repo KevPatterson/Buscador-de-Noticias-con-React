@@ -79,6 +79,7 @@ const ListadoNoticias = ({
     onClearQuery,
     selectedNews,
     onToggleSelect,
+    extrayendo,
 }) => {
     const sourceChipConfig = {
         newsdata: {
@@ -196,16 +197,17 @@ const ListadoNoticias = ({
 
             {noticias.length > 0 && (
                 <Grid container spacing={2}>
-                    {noticias.map((noticia, index) => (
-                        <Noticia
-                            key={`${noticia.link || noticia.title}-${index}`}
-                            index={index}
-                            noticia={noticia}
-                            vista={vista}
-                            selectedNews={selectedNews}
-                            onToggleSelect={onToggleSelect}
-                        />
-                    ))}
+                            {noticias.map((noticia, index) => (
+                                <Noticia
+                                    key={`${noticia.link || noticia.title}-${index}`}
+                                    index={index}
+                                    noticia={noticia}
+                                    vista={vista}
+                                    selectedNews={selectedNews}
+                                    onToggleSelect={onToggleSelect}
+                                    extrayendo={extrayendo}
+                                />
+                            ))}
                 </Grid>
             )}
 

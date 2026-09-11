@@ -15,11 +15,13 @@
   "dependencies": {
     "@emotion/react": "^11.14.0",
     "@emotion/styled": "^11.14.0",
+    "@mozilla/readability": "^0.6.0",
     "@mui/material": "^6.3.1",
     "cheerio": "^1.0.0",
     "docx": "^9.5.1",
     "fast-xml-parser": "^5.5.10",
     "file-saver": "^2.0.5",
+    "jsdom": "^29.1.1",
     "react": "^18.3.1",
     "react-dom": "^18.3.1"
   },

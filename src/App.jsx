@@ -16,6 +16,7 @@ import { FUENTES_INSTITUCIONALES, FUENTES_RSS } from './config/fuentes-rss';
 import useNoticias from './hooks/useNoticias.js';
 import useRSS from './hooks/useRSS.js';
 import './styles.css';
+import { extractArticle } from './services/extractArticle.js';
 
 const CATEGORIAS = [
   { value: 'top', label: 'General' },
@@ -126,6 +127,7 @@ function App() {
   const [vista, setVista] = useState(() => localStorage.getItem(VISTA_KEY) || 'grid');
   const [fuenteEspecifica, setFuenteEspecifica] = useState(() => localStorage.getItem(FUENTE_KEY) || null);
   const [selectedNews, setSelectedNews] = useState([]);
+  const [extrayendo, setExtrayendo] = useState({});
   const [isGeneratingReport, setIsGeneratingReport] = useState(false);
   const [reportError, setReportError] = useState('');
   const sentinelRef = useRef(null);
@@ -267,7 +269,7 @@ function App() {
     refetchNewsData();
   };
 
-  const toggleNewsSelection = (newsItem) => {
+  const toggleNewsSelection = async (newsItem) => {
     const itemKey = newsItem.link || newsItem.title;
     if (!itemKey) return;
 
@@ -277,8 +279,48 @@ function App() {
         return current.filter((item) => (item.link || item.title) !== itemKey);
       }
 
-      return [...current, newsItem];
+      return current; // añadirá tras extracción
     });
+
+    const alreadySelected = selectedNews.some((item) => (item.link || item.title) === itemKey);
+    if (alreadySelected) {
+      // fue removida por otro control simultáneo
+      return;
+    }
+
+    // Marcar extracción en curso
+    setExtrayendo((prev) => ({ ...prev, [itemKey]: true }));
+
+    try {
+      const { contenido, autor, extraido, titulo } = await extractArticle(newsItem.link, newsItem.description || '');
+
+      const enriched = {
+        ...newsItem,
+        contenidoCompleto: contenido,
+        autorExtraido: autor || '',
+        _contenidoExtraido: Boolean(extraido),
+        title: newsItem.title || titulo || newsItem.title,
+      };
+
+      setSelectedNews((prev) => {
+        const exists = prev.some((item) => (item.link || item.title) === itemKey);
+        if (exists) return prev;
+        return [...prev, enriched];
+      });
+    } catch (err) {
+      // en fallo, añadir la noticia sin contenido extraido
+      setSelectedNews((prev) => {
+        const exists = prev.some((item) => (item.link || item.title) === itemKey);
+        if (exists) return prev;
+        return [...prev, { ...newsItem, contenidoCompleto: '', autorExtraido: '', _contenidoExtraido: false }];
+      });
+    } finally {
+      setExtrayendo((prev) => {
+        const copy = { ...prev };
+        delete copy[itemKey];
+        return copy;
+      });
+    }
   };
 
   const cleanDocText = (value = '') =>
@@ -415,6 +457,17 @@ function App() {
           const encodedUrl = encodeURIComponent(news.link || '');
           const fallbackText = pickFallbackText(news);
 
+          // Si ya fue extraida al seleccionar, reutilizarla
+          if (news.contenidoCompleto) {
+            const scrapedText = removeDocBoilerplate(news.contenidoCompleto || '');
+            const isCompleteText = isUsefulArticleText(scrapedText);
+            return {
+              ...news,
+              reportText: isCompleteText ? scrapedText : fallbackText,
+              scraped: isCompleteText,
+            };
+          }
+
           if (!encodedUrl) {
             return {
               ...news,
@@ -424,13 +477,10 @@ function App() {
           }
 
           try {
-            const response = await fetch(`${SCRAPE_API_BASE}/api/scrape?url=${encodedUrl}`);
-            const contentType = response.headers.get('content-type') || '';
-            if (!response.ok || !contentType.includes('application/json')) {
-              throw new Error('Endpoint /api/scrape no disponible o respuesta invalida');
-            }
+            const response = await fetch(`${SCRAPE_API_BASE}/api/extract-article?url=${encodedUrl}`);
+            if (!response.ok) throw new Error('extract-article no disponible');
             const payload = await response.json();
-            const scrapedText = removeDocBoilerplate(payload?.fullText || '');
+            const scrapedText = removeDocBoilerplate(payload?.contenido || '');
             const isCompleteText = isUsefulArticleText(scrapedText);
 
             return {
@@ -618,6 +668,7 @@ function App() {
           fuenteActiva={usarRSS ? 'rss' : 'newsdata'}
           selectedNews={selectedNews}
           onToggleSelect={toggleNewsSelection}
+          extrayendo={extrayendo}
         />
         </Box>
 

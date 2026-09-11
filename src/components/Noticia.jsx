@@ -16,6 +16,7 @@ import {
     Tooltip,
     Typography,
 } from '@mui/material';
+import CircularProgress from '@mui/material/CircularProgress';
 
 const ContentCopyIcon = (props) => (
     <SvgIcon {...props}>
@@ -78,7 +79,7 @@ const formatRelativeDate = (value) => {
     return `${diffDays} d`;
 };
 
-const Noticia = ({ noticia, vista, index = 0, selectedNews = [], onToggleSelect }) => {
+const Noticia = ({ noticia, vista, index = 0, selectedNews = [], onToggleSelect, extrayendo = {} }) => {
     const [copiado, setCopiado] = useState(false);
     const [openSnack, setOpenSnack] = useState(false);
     const [errorImagen, setErrorImagen] = useState(false);
@@ -94,6 +95,7 @@ const Noticia = ({ noticia, vista, index = 0, selectedNews = [], onToggleSelect 
     const fuenteCubana = esFuenteCubana(url);
     const key = noticia.link || noticia.title;
     const isSelected = selectedNews.some((item) => (item.link || item.title) === key);
+    const estaExtrayendo = Boolean(extrayendo?.[key]);
 
     useEffect(() => {
         if (!copiado) return;
@@ -319,8 +321,9 @@ const Noticia = ({ noticia, vista, index = 0, selectedNews = [], onToggleSelect 
                         color="primary"
                         size="small"
                         onClick={handleSelectClick}
+                        disabled={estaExtrayendo}
                     >
-                        {isSelected ? 'Seleccionada' : 'Seleccionar'}
+                        {estaExtrayendo ? <CircularProgress size={16} /> : (isSelected ? 'Seleccionada' : 'Seleccionar')}
                     </Button>
                 </CardActions>
             </Card>
