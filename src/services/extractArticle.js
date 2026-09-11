@@ -5,21 +5,39 @@
 export const extractArticle = async (url, descriptionFallback = "") => {
   try {
     const res = await fetch(`/api/extract-article?url=${encodeURIComponent(url)}`);
-    const data = await res.json();
+    if (res.ok) {
+      const data = await res.json();
+      if (data && data.contenido && data.contenido.trim().length > 80) {
+        return {
+          contenido: data.contenido,
+          autor: data.autor || "",
+          titulo: data.titulo || "",
+          extraido: true,
+        };
+      }
+    }
 
-    if (!res.ok || data.fallback) {
-      return {
-        contenido: limpiarDescripcionRSS(descriptionFallback),
-        autor: "",
-        extraido: false,
-      };
+    // Fallback: intentar el endpoint /api/scrape que ya existe en el proyecto
+    try {
+      const res2 = await fetch(`/api/scrape?url=${encodeURIComponent(url)}`);
+      if (res2.ok) {
+        const payload = await res2.json();
+        if (payload?.fullText && payload.fullText.trim().length > 80) {
+          return {
+            contenido: payload.fullText,
+            autor: "",
+            extraido: true,
+          };
+        }
+      }
+    } catch {
+      // ignorar
     }
 
     return {
-      contenido: data.contenido || "",
-      autor: data.autor || "",
-      titulo: data.titulo || "",
-      extraido: true,
+      contenido: limpiarDescripcionRSS(descriptionFallback),
+      autor: "",
+      extraido: false,
     };
   } catch {
     return {

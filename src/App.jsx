@@ -477,16 +477,44 @@ function App() {
           }
 
           try {
+            // Intentar extracción limpia con Readability
             const response = await fetch(`${SCRAPE_API_BASE}/api/extract-article?url=${encodedUrl}`);
-            if (!response.ok) throw new Error('extract-article no disponible');
-            const payload = await response.json();
-            const scrapedText = removeDocBoilerplate(payload?.contenido || '');
-            const isCompleteText = isUsefulArticleText(scrapedText);
+            if (response.ok) {
+              const payload = await response.json();
+              const scrapedText = removeDocBoilerplate(payload?.contenido || '');
+              const isCompleteText = isUsefulArticleText(scrapedText);
+              if (isCompleteText) {
+                return {
+                  ...news,
+                  reportText: scrapedText,
+                  scraped: true,
+                };
+              }
+            }
+
+            // Fallback: usar el antiguo endpoint /api/scrape (cheerio + heurísticas)
+            try {
+              const resp2 = await fetch(`${SCRAPE_API_BASE}/api/scrape?url=${encodedUrl}`);
+              if (resp2.ok) {
+                const payload2 = await resp2.json();
+                const scraped2 = removeDocBoilerplate(payload2?.fullText || '');
+                const isComplete2 = isUsefulArticleText(scraped2);
+                if (isComplete2) {
+                  return {
+                    ...news,
+                    reportText: scraped2,
+                    scraped: true,
+                  };
+                }
+              }
+            } catch {
+              // ignorar fallback
+            }
 
             return {
               ...news,
-              reportText: isCompleteText ? scrapedText : fallbackText,
-              scraped: isCompleteText,
+              reportText: fallbackText,
+              scraped: false,
             };
           } catch {
             return {
