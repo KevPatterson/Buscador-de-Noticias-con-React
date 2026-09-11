@@ -165,6 +165,26 @@ export default async function handler(req, res) {
     if (textoArticulo.length >= 200) {
       textoLimpio = limpiarTexto(textoArticulo);
     } else {
+        // Intentar fallback simple: concatenar los <p> de los selectores de contenido del dominio
+        if (domainConfig?.contentSelectors) {
+          for (const sel of domainConfig.contentSelectors) {
+            try {
+              const node = document.querySelector(sel);
+              if (node) {
+                const ps = Array.from(node.querySelectorAll('p')).map((p) => p.textContent.trim()).filter(Boolean);
+                const joined = ps.join('\n\n');
+                const cleanedJoined = limpiarTexto(joined);
+                if (cleanedJoined.length >= 200) {
+                  textoLimpio = cleanedJoined;
+                  break;
+                }
+              }
+            } catch {
+              // seguir con siguiente selector
+            }
+          }
+        }
+
       const cleanTarget = urlObj.href.replace(/^https?:\/\//i, '');
       for (const proxy of PROXIES) {
         try {
