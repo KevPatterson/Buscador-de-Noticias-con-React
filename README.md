@@ -56,19 +56,24 @@ La aplicación estará disponible en `http://localhost:5173`
 
 ### Variables de entorno
 
-Crea un archivo `.env` en la raíz del proyecto:
+Crea un archivo `.env` en la raiz del proyecto (desarrollo local):
 
 ```env
-# API Keys (opcionales - la app funciona solo con RSS si no se configuran)
-VITE_NEWSDATA_API_KEY=tu_newsdata_key
-VITE_THENEWSAPI_KEY=tu_thenewsapi_key
-VITE_NEWSAPI_KEY=tu_newsapi_key
+# API Keys del servidor (opcionales - la app funciona solo con RSS si no se configuran).
+# En Vercel configurarlas sin prefijo VITE_ para que no queden expuestas al navegador.
+NEWSDATA_API_KEY=tu_newsdata_key
+THENEWSAPI_KEY=tu_thenewsapi_key
+NEWSAPI_KEY=tu_newsapi_key
 
-# Configuración de scraping (opcional)
-VITE_SCRAPE_API_BASE_URL=
+# Dominio de despliegue en Vercel (se usa para CORS restringido).
+# Ejemplo: VERCEL_URL=cubapress.vercel.app
+VERCEL_URL=
+
+# Configuracion de scraping (opcional)
+SCRAPE_API_BASE_URL=
 
 # Dominios bloqueados para reportes (separados por coma)
-VITE_REPORT_BLOCKED_DOMAINS=news.google.com
+REPORT_BLOCKED_DOMAINS=news.google.com
 ```
 
 ### Obtener API Keys
@@ -78,6 +83,8 @@ VITE_REPORT_BLOCKED_DOMAINS=news.google.com
 - **NewsAPI.org**: [https://newsapi.org/register](https://newsapi.org/register)
 
 > **Nota**: Las API keys son opcionales. Sin ellas, la aplicación funciona exclusivamente con fuentes RSS.
+>
+> **Seguridad**: las keys se leen exclusivamente en las serverless functions (`/api/news`). Nunca se envian al navegador. Si alguna key ya estuvo expuesta en el bundle o el repositorio, rotala inmediatamente.
 
 ## 🛠️ Stack tecnológico
 
@@ -150,11 +157,15 @@ npm run lint     # Ejecutar ESLint
 
 ### Vercel (recomendado)
 
-El proyecto incluye serverless functions compatibles con Vercel:
+El proyecto incluye serverless functions compatibles con Vercel: `/api/news`, `/api/rss` y `/api/scrape`.
 
 1. Conecta tu repositorio en [Vercel](https://vercel.com)
-2. Configura las variables de entorno
+2. Configura las variables de entorno en la consola de Vercel (ajustes del proyecto):
+   - `NEWSDATA_API_KEY`, `THENEWSAPI_KEY`, `NEWSAPI_KEY` (claves de las APIs de noticias; opcionales)
+   - `VERCEL_URL` (dominio de despliegue, usado para CORS restringido; opcional en previews)
 3. Deploy automático
+
+> Las claves de API deben configurarse **sin prefijo `VITE_`**. Las variables con prefijo `VITE_` se incrustan en el bundle del navegador y nunca deben usarse para claves secretas.
 
 ### Hosting estático
 
@@ -164,7 +175,7 @@ Para despliegue sin serverless functions:
 npm run build
 ```
 
-Sube la carpeta `dist` a tu hosting preferido. Configura `VITE_SCRAPE_API_BASE_URL` apuntando a un backend externo.
+Sube la carpeta `dist` a tu hosting preferido. Sin las functions de `/api`, el buscador por API funcionara solo con fuentes RSS y el scraping dependera de `SCRAPE_API_BASE_URL` apuntando a un backend externo.
 
 ## 🤝 Contribuciones
 

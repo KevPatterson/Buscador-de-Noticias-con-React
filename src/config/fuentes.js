@@ -24,6 +24,10 @@ export const DOMINIOS_PREFERIDOS = [
   "infobae.com",
 ];
 
+// Dominios adicionales que sirven contenido de fuentes configuradas pero no son
+// subdominios del dominio del feed (p. ej. radio26.icrt.cu enlaza a radio26.cu).
+export const DOMINIOS_ADICIONALES = ['radio26.cu'];
+
 export const NOMBRES_FUENTES = {
   'cubadebate.cu': 'Cubadebate',
   'granma.cu': 'Granma',

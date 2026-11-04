@@ -447,7 +447,7 @@ function App() {
   };
 
   const pickFallbackText = (news) => {
-    const candidates = [news.content, news.description, news.snippet]
+    const candidates = [news.content, news.content_encoded, news.description, news.snippet]
       .map((item) => removeDocBoilerplate(item || ''))
       .filter(Boolean);
 
@@ -494,11 +494,12 @@ function App() {
           }
 
           try {
-            // Intentar extracción limpia con Readability
-            const response = await fetch(`${SCRAPE_API_BASE}/api/extract-article?url=${encodedUrl}`);
+            // Extraccion de contenido completo via /api/scrape (cascada: JSON-LD,
+            // selectores de dominio, Readability y heuristica).
+            const response = await fetch(`${SCRAPE_API_BASE}/api/scrape?url=${encodedUrl}`);
             if (response.ok) {
               const payload = await response.json();
-              const scrapedText = removeDocBoilerplate(payload?.contenido || '');
+              const scrapedText = removeDocBoilerplate(payload?.cuerpo || '');
               const isCompleteText = isUsefulArticleText(scrapedText);
               if (isCompleteText) {
                 return {
@@ -507,25 +508,6 @@ function App() {
                   scraped: true,
                 };
               }
-            }
-
-            // Fallback: usar el antiguo endpoint /api/scrape (cheerio + heurísticas)
-            try {
-              const resp2 = await fetch(`${SCRAPE_API_BASE}/api/scrape?url=${encodedUrl}`);
-              if (resp2.ok) {
-                const payload2 = await resp2.json();
-                const scraped2 = removeDocBoilerplate(payload2?.fullText || '');
-                const isComplete2 = isUsefulArticleText(scraped2);
-                if (isComplete2) {
-                  return {
-                    ...news,
-                    reportText: scraped2,
-                    scraped: true,
-                  };
-                }
-              }
-            } catch {
-              // ignorar fallback
             }
 
             return {

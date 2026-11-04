@@ -1,35 +1,58 @@
 import * as cheerio from 'cheerio';
+import { Readability } from '@mozilla/readability';
+import { parseHTML } from 'linkedom';
+import { secureFetch, SecureFetchError } from '../src/lib/secureFetch.js';
+import { configurarCors } from '../src/lib/cors.js';
+import { obtenerReglas } from '../src/config/extraccion.js';
+
+// Bloque intencional: swallow de errores de cleanup en DOM (Cheerio tolera
+// operaciones sobre nodos que ya fueron removidos del documento).
+/* eslint-disable no-empty */
+
+import { normalizeText, clampText, dedupeParagraphs } from '../src/lib/textUtil.js';
 
 const asSingleValue = (value) => (Array.isArray(value) ? value[0] : value);
 
-const normalizeText = (value = '') =>
-  value
-    .replace(/\u00a0/g, ' ')
-    .replace(/[ \t]+/g, ' ')
-    .replace(/\n{3,}/g, '\n\n')
-    .trim();
+const MIN_PARAGRAFO = 40;
+const MIN_CUERPO_VALIDO = 300;
+const MAX_DENSIDAD_ENLACES = 0.5;
 
-const clampText = (value = '', max = 10000) => value.slice(0, max);
-
-const BOILERPLATE_START_MARKERS = [
-  'Do Not Process My Personal Information',
-  'Personal Data Processing Opt Outs',
-  'I want to opt-out',
-  'RESUMEN DE AUDIO (GENERADO POR IA)',
-  'Latest stories',
-  'Historias Relacionadas',
-  'Previous article',
-  'Next article',
-  'Ultimas entradas',
-  'Últimas entradas',
-  'All Rights Reserved',
-  'Todos los derechos reservados',
-  'We use cookies',
-  'Do Not Sell My Data',
-  'Gracias por compartir',
-  'UNLOCK ALL',
-  'Sign in',
+// Selectores de ruido eliminados siempre (limpieza del DOM, punto 2.4).
+const RUIDO_GLOBAL = [
+  'script',
+  'style',
+  'noscript',
+  'nav',
+  'aside',
+  'footer',
+  'iframe',
+  'form',
+  'button',
+  // botones/bloques de compartir
+  '.share', '.social', '.share-buttons', '.social-share', '.share-buttons',
+  // bloques relacionados / te puede interesar
+  '.related', '.related-posts', '.related-articles', '.te-puede-interesar', '.lea-tambien',
+  '.publicidad', '.ads', '.advertisement', '.sponsored', '.promo', '.banner', '.cookie', '.modal', '.popup',
 ];
+
+const limpiarDOM = ($, reglas) => {
+  RUIDO_GLOBAL.forEach((selector) => {
+    try { $(selector).remove(); } catch {}
+  });
+
+  if (reglas && Array.isArray(reglas.quitar)) {
+    reglas.quitar.forEach((selector) => {
+      try { $(selector).remove(); } catch {}
+    });
+  }
+
+  // Eliminar nodos de comentario HTML.
+  $('*').contents().each((_, node) => {
+    if (node.nodeType === 8) {
+      try { $(node).remove(); } catch {}
+    }
+  });
+};
 
 const normalizeForCompare = (value = '') =>
   value
@@ -39,340 +62,305 @@ const normalizeForCompare = (value = '') =>
     .toLowerCase()
     .trim();
 
-const dedupeParagraphs = (value = '') => {
-  const seen = new Set();
-  const result = [];
+// Texto de un contenedor: parrafos (>= 40 caracteres), subtitulos y listas.
+const textoDeContenedor = ($, nodo) => {
+  const bloques = [];
 
-  value.split(/\n{2,}/).forEach((paragraph) => {
-    const cleanParagraph = normalizeText(paragraph);
-    if (!cleanParagraph) return;
+  nodo.find('p, h1, h2, h3, h4, h5, h6, li').each((_, element) => {
+    const $elemento = $(element);
+    const esParrafo = $elemento.is('p');
+    const texto = normalizeText($elemento.text());
 
-    const key = normalizeForCompare(cleanParagraph);
-    if (!key || seen.has(key)) return;
+    if (!texto) return;
+    if (esParrafo && texto.length < MIN_PARAGRAFO) return;
 
-    seen.add(key);
-    result.push(cleanParagraph);
+    bloques.push(texto);
   });
 
-  return result.join('\n\n');
+  return dedupeParagraphs(bloques.join('\n\n'));
 };
 
-const stripLeadingBoilerplate = (value = '') => {
-  const lines = value.split('\n');
-  let startIndex = 0;
-
-  for (let i = 0; i < lines.length; i += 1) {
-    const line = lines[i].trim();
-    if (!line) continue;
-
-    const isBoilerplate = BOILERPLATE_START_MARKERS.some((marker) =>
-      line.toLowerCase().includes(marker.toLowerCase())
-    );
-
-    if (isBoilerplate || /^#\s/.test(line) || /^\[.*\]\(https?:\/\//.test(line)) {
-      startIndex = i + 1;
-      continue;
-    }
-
-    break;
-  }
-
-  return lines.slice(startIndex).join('\n');
+const densidadEnlaces = ($, nodo) => {
+  const textoTotal = normalizeText(nodo.text()).length;
+  if (!textoTotal) return 1;
+  const textoEnlaces = nodo.find('a').text().length;
+  return textoEnlaces / textoTotal;
 };
 
-const cutAtMarker = (value = '', markers = []) => {
-  let cutIndex = -1;
-
-  markers.forEach((marker) => {
-    const idx = value.toLowerCase().indexOf(marker.toLowerCase());
-    if (idx > 0 && (cutIndex === -1 || idx < cutIndex)) {
-      cutIndex = idx;
-    }
-  });
-
-  if (cutIndex > 0) return value.slice(0, cutIndex);
-  return value;
+const esTextoValido = (texto) => {
+  if (!texto || texto.length < MIN_CUERPO_VALIDO) return false;
+  const parrafos = texto.split(/\n+/).filter((p) => p.trim().length >= MIN_PARAGRAFO);
+  return parrafos.length >= 2;
 };
 
-const cleanupProxyText = (targetUrl, rawText = '') => {
-  let text = rawText;
-
-  text = text
-    .replace(/(^|\n)Title:\s.*?(\n|$)/g, '\n')
-    .replace(/(^|\n)URL Source:\s.*?(\n|$)/g, '\n')
-    .replace(/(^|\n)Warning:\s.*?(\n|$)/g, '\n')
-    .replace(/(^|\n)Markdown Content:\s*(\n|$)/g, '\n');
-
-  text = text
-    .split('\n')
-    .filter((line) => {
-      const trimmed = line.trim();
-      if (!trimmed) return true;
-      if (/^\*\s+\[/.test(trimmed)) return false;
-      if (/^\[[^\]]+\]\(https?:\/\//.test(trimmed)) return false;
-      return true;
-    })
-    .join('\n');
-
-  text = stripLeadingBoilerplate(text);
-
-  let host = '';
-  try {
-    host = new URL(targetUrl).hostname.toLowerCase();
-  } catch {
-    host = '';
-  }
-
-  if (host.includes('holanews.com')) {
-    const startMatch = text.match(/[A-ZÁÉÍÓÚÑ][^\n]{2,},\s*\d{1,2}\s+[A-Za-záéíóúñ]+\s*\(EFE\)\.-/i);
-    if (startMatch?.index >= 0) {
-      text = text.slice(startMatch.index);
-    }
-
-    const endMarkers = [
-      'Previous article',
-      'Next article',
-      'Historias Relacionadas',
-      'Latest stories',
-      'Subscribe',
-      'All Rights Reserved',
-    ];
-    text = cutAtMarker(text, endMarkers);
-  }
-
-  if (host.includes('efe.com')) {
-    const datelineStart = text.match(/[A-ZÁÉÍÓÚÑa-záéíóúñ\s.'-]+\(EFE\)\.-/);
-    if (datelineStart?.index >= 0) {
-      text = text.slice(datelineStart.index);
-    }
-
-    text = cutAtMarker(text, [
-      'Últimas entradas',
-      'Ultimas entradas',
-      'Todos los derechos reservados',
-      'Do Not Sell My Data',
-      'We use cookies',
-      'Gracias por compartir',
-      'Volver arriba',
-    ]);
-  }
-
-  if (/too many requests|rate-limited/i.test(text)) return '';
-
-  const normalized = normalizeText(text);
-  return dedupeParagraphs(normalized);
-};
-
-const CONTENT_SELECTORS = [
-  'article',
-  '.main-content',
-  '.post-content',
-  '.entry-content',
-  '#article-body',
-  '[itemprop="articleBody"]',
-  '.article-content',
-  '.news-content',
-  '.story-body',
-  'main article',
-];
-
-const NOISE_SELECTORS = [
-  'script',
-  'style',
-  'noscript',
-  'iframe',
-  'svg',
-  'canvas',
-  'nav',
-  'header',
-  'footer',
-  'aside',
-  'form',
-  'menu',
-  '[role="navigation"]',
-  '.menu',
-  '.nav',
-  '.navbar',
-  '.header',
-  '.footer',
-  '.breadcrumbs',
-  '.share',
-  '.social',
-  '.related',
-  '.comments',
-  '.comment',
-  '.popup',
-  '.modal',
-  '.ads',
-  'ads',
-  '.ad',
-  '.advertisement',
-  '.sponsored',
-  '.promo',
-  '.cookie',
-  '[id*="ad-"]',
-  // Avoid matching ids that merely contain 'ad-' inside words (e.g. tdb-autoload-article)
-  '[id^="ad-"]',
-  '[class*=" ad-"]',
-  '[class*="ads"]',
-  '[class*="banner"]',
-  '[class*="sponsor"]',
-];
-
-const cleanDom = ($) => {
-  NOISE_SELECTORS.forEach((selector) => {
-    $(selector).remove();
-  });
-};
-
-const walkJson = (value, collector) => {
-  if (Array.isArray(value)) {
-    value.forEach((item) => walkJson(item, collector));
+const caminarJsonLD = (valor, colector) => {
+  if (Array.isArray(valor)) {
+    valor.forEach((item) => caminarJsonLD(item, colector));
     return;
   }
 
-  if (!value || typeof value !== 'object') return;
+  if (!valor || typeof valor !== 'object') return;
 
-  const type = String(value['@type'] || '').toLowerCase();
-  const candidate = value.articleBody || value.text;
+  const tipo = String(valor['@type'] || '').toLowerCase();
+  const esArticulo =
+    tipo.includes('newsarticle') || tipo.includes('article') || tipo.includes('reportage') || tipo.includes('blogposting');
 
-  if ((type.includes('article') || type.includes('newsarticle')) && typeof candidate === 'string') {
-    const cleaned = normalizeText(candidate);
-    if (cleaned.length > 120) collector.push(cleaned);
+  if (esArticulo && typeof valor.articleBody === 'string') {
+    colector.push(valor);
   }
 
-  Object.values(value).forEach((nested) => walkJson(nested, collector));
+  Object.values(valor).forEach((anidado) => caminarJsonLD(anidado, colector));
 };
 
-const extractFromJsonLd = ($) => {
-  const candidates = [];
+const autorJsonLD = (valor) => {
+  if (!valor) return '';
+  if (typeof valor === 'string') return valor;
+  if (Array.isArray(valor)) return autorJsonLD(valor[0]) || '';
+  if (typeof valor === 'object') return valor.name || valor['#text'] || '';
+  return '';
+};
+
+const imagenJsonLD = (valor) => {
+  if (!valor) return '';
+  if (typeof valor === 'string') return valor;
+  if (Array.isArray(valor)) return imagenJsonLD(valor[0]) || '';
+  if (typeof valor === 'object') return valor.url || valor['@_url'] || valor['#text'] || '';
+  return '';
+};
+
+const extraerJsonLD = ($) => {
+  const candidatos = [];
 
   $('script[type="application/ld+json"]').each((_, element) => {
-    const raw = $(element).contents().text();
+    const raw = $(element).contents().text() || $(element).text();
     if (!raw) return;
-
     try {
       const parsed = JSON.parse(raw);
-      walkJson(parsed, candidates);
+      caminarJsonLD(parsed, candidatos);
     } catch {
       return;
     }
   });
 
-  return candidates.sort((a, b) => b.length - a.length)[0] || '';
+  candidatos.sort((a, b) => (b.articleBody || '').length - (a.articleBody || '').length);
+  const mejor = candidatos[0];
+  if (!mejor) return null;
+
+  return {
+    cuerpo: normalizeText(mejor.articleBody),
+    titulo: mejor.headline || '',
+    fecha: mejor.datePublished || '',
+    autor: autorJsonLD(mejor.author),
+    imagen: imagenJsonLD(mejor.image),
+  };
 };
 
-const getParagraphsFromNode = ($, node) => {
-  const chunks = [];
+const extraerPorSelectoresDeDominio = ($, reglas) => {
+  if (!reglas || !reglas.selectorCuerpo) return null;
 
-  node.find('p').each((_, element) => {
-    const paragraph = normalizeText($(element).text());
-    if (paragraph.length >= 20) chunks.push(paragraph);
+  const selectores = String(reglas.selectorCuerpo)
+    .split(',')
+    .map((s) => s.trim())
+    .filter(Boolean);
+
+  for (const selector of selectores) {
+    const nodo = $(selector).first();
+    if (!nodo.length) continue;
+
+    const texto = textoDeContenedor($, nodo);
+    if (!esTextoValido(texto)) continue;
+    if (densidadEnlaces($, nodo) >= MAX_DENSIDAD_ENLACES) continue;
+
+    const fecha = reglas.selectorFecha
+      ? normalizeText($(reglas.selectorFecha).first().text()) || ''
+      : '';
+    const autor = reglas.selectorAutor
+      ? normalizeText($(reglas.selectorAutor).first().text()) || ''
+      : '';
+
+    return { cuerpo: texto, fecha, autor };
+  }
+
+  return null;
+};
+
+const extraerConReadability = (html, url) => {
+  try {
+    const { document } = parseHTML(html, { url, contentType: 'text/html' });
+    const resultado = new Readability(document).parse();
+    if (!resultado) return null;
+    return {
+      cuerpo: normalizeText(resultado.textContent || ''),
+      titulo: resultado.title || '',
+      html: resultado.content || '',
+    };
+  } catch {
+    return null;
+  }
+};
+
+const extraerHeuristica = ($) => {
+  const candidatos = $('article, main, section, .content, #content, .post, .entry, div');
+  let mejor = null;
+
+  candidatos.each((_, elemento) => {
+    const $nodo = $(elemento);
+    const texto = textoDeContenedor($, $nodo);
+    const parrafos = $nodo.find('p').length;
+
+    if (!esTextoValido(texto)) return;
+    if (parrafos < 2) return;
+    if (densidadEnlaces($, $nodo) >= MAX_DENSIDAD_ENLACES) return;
+
+    const puntuacion = parrafos * 300 + texto.length - densidadEnlaces($, $nodo) * 1500;
+    if (!mejor || puntuacion > mejor.puntuacion) {
+      mejor = { texto, puntuacion };
+    }
   });
 
-  return chunks;
+  return mejor ? { cuerpo: mejor.texto } : null;
 };
 
-const getMainContainer = ($) => {
-  for (const selector of CONTENT_SELECTORS) {
-    const candidate = $(selector).first();
-    if (!candidate.length) continue;
-
-    const paragraphs = getParagraphsFromNode($, candidate);
-    if (paragraphs.length >= 2) return candidate;
-  }
-
-  const body = $('body').first();
-  return body.length ? body : $.root();
+const normalizeDate = (value) => {
+  if (!value) return '';
+  const fecha = new Date(value);
+  return Number.isNaN(fecha.getTime()) ? '' : fecha.toISOString();
 };
 
-const extractFullText = ($) => {
-  const container = getMainContainer($);
-  let paragraphs = getParagraphsFromNode($, container);
-
-  if (paragraphs.length === 0) {
-    paragraphs = getParagraphsFromNode($, $('body'));
-  }
-
-  if (paragraphs.length === 0) {
-    return normalizeText(container.text());
-  }
-
-  const mergedText = normalizeText(paragraphs.join('\n\n'));
-  if (mergedText) return dedupeParagraphs(mergedText);
-  return dedupeParagraphs(normalizeText(container.text()));
-};
-
-const emptyResponse = (res) => res.status(200).json({ fullText: '' });
-
-const extractUsingReadableProxy = async (targetUrl) => {
+const resolverURL = (valor, baseUrl) => {
+  if (!valor) return '';
   try {
-    const cleanTarget = targetUrl.replace(/^https?:\/\//i, '');
-    const proxyUrl = `https://r.jina.ai/http://${cleanTarget}`;
-    const response = await fetch(proxyUrl, {
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (compatible; NewsAppScraper/1.0)',
-        Accept: 'text/plain',
-      },
-    });
-
-    if (!response.ok) return '';
-    const rawText = await response.text();
-    const plainText = cleanupProxyText(targetUrl, rawText);
-    return plainText.length >= 220 ? plainText : '';
+    return new URL(valor, baseUrl).href;
   } catch {
     return '';
   }
 };
 
-export default async function handler(req, res) {
-  const urlParam = asSingleValue(req.query.url);
+const extraerMetadatosOG = ($, baseUrl) => {
+  const attr = (selector, nombre) => $(selector).attr(nombre) || '';
+  const meta = (nombre) => attr(`meta[name="${nombre}"]`, 'content');
+  const metaProperty = (propiedad) => attr(`meta[property="${propiedad}"]`, 'content');
 
-  if (!urlParam) return emptyResponse(res);
+  const titulo =
+    metaProperty('og:title') || meta('twitter:title') || $('title').text().trim() || '';
+  const fecha =
+    normalizeDate(metaProperty('article:published_time') || meta('date') || '') || '';
+  const autor = metaProperty('article:author') || meta('author') || '';
+  const imagen = resolverURL(metaProperty('og:image') || meta('twitter:image') || '', baseUrl);
+  const descripcion = metaProperty('og:description') || meta('description') || '';
+
+  return { titulo, fecha, autor, imagen, descripcion };
+};
+
+const obtenerUrlCanonica = ($, baseUrl) => {
+  const href = $('link[rel="canonical"]').attr('href');
+  return resolverURL(href, baseUrl) || baseUrl;
+};
+
+export default async function handler(req, res) {
+  const esPreflight = configurarCors(req, res);
+  if (esPreflight) return;
+
+  const urlParam = asSingleValue(req.query.url);
+  const descripcionRSS = asSingleValue(req.query.description); // fallback del RSS (punto 2.5)
+
+  if (!urlParam) {
+    return res.status(400).json({ status: 'error', message: 'Falta el parametro url' });
+  }
 
   let targetUrl;
   try {
     targetUrl = decodeURIComponent(urlParam);
     new URL(targetUrl);
   } catch {
-    return emptyResponse(res);
+    return res.status(400).json({ status: 'error', message: 'URL invalida' });
   }
 
   try {
-    const response = await fetch(targetUrl, {
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (compatible; NewsAppScraper/1.0)',
-        Accept: 'text/html,application/xhtml+xml',
-        'Accept-Language': 'es-ES,es;q=0.9,en;q=0.8',
-      },
-    });
+    // validateUrl (dentro de secureFetch): esquema http/https, sin credenciales, max 2048
+    // caracteres, allowlist de dominios de src/config, bloqueo de IPs privadas.
+    // Sigue redirecciones manualmente (max 3) revalidando dominio e IP en cada salto.
+    const response = await secureFetch(targetUrl);
+    const $ = cheerio.load(response.body);
+    const baseUrl = response.finalUrl;
 
-    if (!response.ok) {
-      const fullTextFromProxyOnError = await extractUsingReadableProxy(targetUrl);
-      if (fullTextFromProxyOnError) {
-        return res.status(200).json({ fullText: clampText(fullTextFromProxyOnError) });
+    // Limpieza del DOM (punto 2.4).
+    const reglas = obtenerReglas(new URL(baseUrl).hostname);
+    limpiarDOM($, reglas);
+
+    const metadatos = extraerMetadatosOG($, baseUrl);
+    const urlCanonica = obtenerUrlCanonica($, baseUrl);
+
+    // Cascada de extraccion (punto 2.2): se queda con el primer resultado valido.
+    let extraccion = null;
+    let metodo = '';
+    let calidad = 'baja';
+
+    // 1) JSON-LD (NewsArticle / Article / ReportageNewsArticle).
+    const jsonLD = extraerJsonLD($);
+    if (jsonLD && esTextoValido(jsonLD.cuerpo)) {
+      extraccion = jsonLD;
+      metodo = 'json-ld';
+      calidad = 'alta';
+    }
+
+    // 2) Selectores por dominio definidos en src/config.
+    if (!extraccion && reglas) {
+      const porSelectores = extraerPorSelectoresDeDominio($, reglas);
+      if (porSelectores && esTextoValido(porSelectores.cuerpo)) {
+        extraccion = porSelectores;
+        metodo = 'selectores-dominio';
+        calidad = 'alta';
+        if (porSelectores.fecha && !metadatos.fecha) metadatos.fecha = normalizeDate(porSelectores.fecha);
+        if (porSelectores.autor && !metadatos.autor) metadatos.autor = porSelectores.autor;
       }
-      return emptyResponse(res);
     }
 
-    const html = await response.text();
-    const $ = cheerio.load(html);
-
-    const fullTextFromJsonLd = extractFromJsonLd($);
-    if (fullTextFromJsonLd) {
-      return res.status(200).json({ fullText: clampText(fullTextFromJsonLd) });
+    // 3) @mozilla/readability con linkedom.
+    if (!extraccion) {
+      const resultado = extraerConReadability(response.body, baseUrl);
+      if (resultado && esTextoValido(resultado.cuerpo)) {
+        extraccion = { cuerpo: resultado.cuerpo };
+        if (resultado.titulo && !metadatos.titulo) metadatos.titulo = resultado.titulo;
+        metodo = 'readability';
+        calidad = 'media';
+      }
     }
 
-    cleanDom($);
-    const fullText = extractFullText($);
+    // 4) Heuristica propia.
+    if (!extraccion) {
+      const heuristica = extraerHeuristica($);
+      if (heuristica && esTextoValido(heuristica.cuerpo)) {
+        extraccion = heuristica;
+        metodo = 'heuristica';
+        calidad = 'media';
+      }
+    }
 
-    if (fullText) return res.status(200).json({ fullText: clampText(fullText) });
+    const cuerpo = extraccion
+      ? clampText(dedupeParagraphs(extraccion.cuerpo))
+      : clampText(descripcionRSS || ''); // punto 2.5: fallback al description del RSS
+    const fechaJSONLD = jsonLD && jsonLD.fecha ? normalizeDate(jsonLD.fecha) : '';
+    const autorJSONLD = jsonLD && jsonLD.autor ? jsonLD.autor : '';
+    const imagenJSONLD = jsonLD && jsonLD.imagen ? resolverURL(jsonLD.imagen, baseUrl) : '';
 
-    const fullTextFromProxy = await extractUsingReadableProxy(targetUrl);
-    if (fullTextFromProxy) return res.status(200).json({ fullText: clampText(fullTextFromProxy) });
+    res.setHeader('Cache-Control', 's-maxage=3600, stale-while-revalidate=86400');
+    return res.status(200).json({
+      status: 'ok',
+      titulo: metadatos.titulo || (jsonLD ? jsonLD.titulo : ''),
+      cuerpo,
+      fecha: metadatos.fecha || fechaJSONLD || '',
+      autor: metadatos.autor || autorJSONLD || '',
+      imagen: metadatos.imagen || imagenJSONLD || '',
+      urlCanonica,
+      metodo: extraccion ? metodo : 'rss-fallback',
+      calidad: extraccion ? calidad : 'baja',
+    });
+  } catch (error) {
+    if (error instanceof SecureFetchError) {
+      return res.status(error.statusCode).json({ status: 'error', message: error.message });
+    }
 
-    return emptyResponse(res);
-  } catch {
-    return emptyResponse(res);
+    return res.status(502).json({ status: 'error', message: 'No se pudo extraer el articulo' });
   }
 }
