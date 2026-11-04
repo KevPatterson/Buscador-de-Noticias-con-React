@@ -1,6 +1,6 @@
 import * as cheerio from 'cheerio';
 import { Readability } from '@mozilla/readability';
-import { Document } from 'linkedom';
+import { parseHTML } from 'linkedom';
 import { secureFetch, SecureFetchError, validateUrl } from '../src/lib/secureFetch.js';
 import { configurarCors } from '../src/lib/cors.js';
 import { obtenerReglas } from '../src/config/extraccion.js';
@@ -207,8 +207,8 @@ const extraerPorSelectoresDeDominio = ($, reglas) => {
 
 const extraerConReadability = (html, url) => {
   try {
-    const documento = new Document(html, { url, contentType: 'text/html' });
-    const resultado = new Readability(documento).parse();
+    const { document } = parseHTML(html, { url, contentType: 'text/html' });
+    const resultado = new Readability(document).parse();
     if (!resultado) return null;
     return {
       cuerpo: normalizeText(resultado.textContent || ''),
@@ -358,7 +358,9 @@ export default async function handler(req, res) {
       }
     }
 
-    const cuerpo = extraccion ? clampText(dedupeParagraphs(extraccion.cuerpo)) : '';
+    const cuerpo = extraccion
+      ? clampText(dedupeParagraphs(extraccion.cuerpo))
+      : clampText(descripcionRSS || ''); // punto 2.5: fallback al description del RSS
     const fechaJSONLD = jsonLD && jsonLD.fecha ? normalizeDate(jsonLD.fecha) : '';
     const autorJSONLD = jsonLD && jsonLD.autor ? jsonLD.autor : '';
     const imagenJSONLD = jsonLD && jsonLD.imagen ? resolverURL(jsonLD.imagen, baseUrl) : '';
@@ -374,7 +376,6 @@ export default async function handler(req, res) {
       urlCanonica,
       metodo: extraccion ? metodo : 'rss-fallback',
       calidad: extraccion ? calidad : 'baja',
-      ...(!extraccion && descripcionRSS ? { descripcionRSS: clampText(descripcionRSS) } : {}),
     });
   } catch (error) {
     if (error instanceof SecureFetchError) {

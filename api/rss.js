@@ -82,17 +82,28 @@ export const fetchFeed = async (feedUrl) => {
   const sourceName = pickText(channel?.title) || new URL(feedUrl).hostname;
   const sourceDomain = new URL(feedUrl).hostname;
 
-  const results = itemArray.slice(0, 20).map((item) => ({
-    title: pickText(item?.title),
-    link: pickLink(item),
-    pubDate: item?.pubDate || item?.published || item?.updated || '',
-    description: pickText(item?.description) || pickText(item?.summary) || pickText(item?.['content:encoded']),
-    image_url: pickImage(item),
-    source_name: sourceName,
-    source_domain: sourceDomain,
-    source_id: sourceDomain,
-    content_encoded: pickText(item?.['content:encoded']) || '',
-  }));
+  const results = itemArray.slice(0, 20).map((item) => {
+    const descripcion = pickText(item?.description) || pickText(item?.summary) || '';
+    const contentEncoded = pickText(item?.['content:encoded']) || '';
+    // Punto 2.1: si el feed trae contenido completo (content:encoded con mas de ~500
+    // caracteres limpios), se usa directamente y no hace falta scrapeo.
+    const description =
+      contentEncoded && normalizeText(contentEncoded).length > 500
+        ? contentEncoded
+        : descripcion || contentEncoded;
+
+    return {
+      title: pickText(item?.title),
+      link: pickLink(item),
+      pubDate: item?.pubDate || item?.published || item?.updated || '',
+      description,
+      image_url: pickImage(item),
+      source_name: sourceName,
+      source_domain: sourceDomain,
+      source_id: sourceDomain,
+      content_encoded: contentEncoded,
+    };
+  });
 
   return { results, message: '', statusCode: response.statusCode };
 };
@@ -116,7 +127,7 @@ export default async function handler(req, res) {
 
   try {
     const { results, message, statusCode } = await fetchFeed(feedUrl);
-    res.setHeader('Cache-Control', 's-maxage=300');
+    res.setHeader('Cache-Control', 's-maxage=3600, stale-while-revalidate=86400');
     return res.status(statusCode || 200).json({
       status: (statusCode && statusCode >= 400) ? 'error' : 'ok',
       results,
@@ -124,7 +135,7 @@ export default async function handler(req, res) {
     });
   } catch (error) {
     if (error instanceof SecureFetchError) {
-      res.setHeader('Cache-Control', 's-maxage=300');
+      res.setHeader('Cache-Control', 's-maxage=3600, stale-while-revalidate=86400');
       return res.status(error.statusCode).json({ status: 'error', message: error.message });
     }
 

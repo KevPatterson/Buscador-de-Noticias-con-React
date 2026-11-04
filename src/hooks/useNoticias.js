@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { GRUPOS_DOMINIOS } from '../config/fuentes';
 import { fetchConFallback } from '../services/fetchConFallback';
+import { dedupeNoticias } from '../lib/dedupe.js';
 
 const UMBRAL_RESULTADOS_PREFERIDOS = 5;
 
@@ -261,7 +262,7 @@ const useNoticias = (params) => {
           fuenteEspecifica,
         });
 
-        const normalizadas = normalizeNews(data.results);
+        const normalizadas = dedupeNoticias(normalizeNews(data.results));
         const paginaSiguiente = data.nextPage || null;
         const tieneMas = Boolean(paginaSiguiente && normalizadas.length > 0);
 
