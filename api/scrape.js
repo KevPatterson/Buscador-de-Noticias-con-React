@@ -110,7 +110,7 @@ const densidadEnlaces = ($, nodo) => {
 
 const esTextoValido = (texto) => {
   if (!texto || texto.length < MIN_CUERPO_VALIDO) return false;
-  const parrafos = texto.split(/\n{2,}/).filter((p) => p.trim().length >= MIN_PARAGRAFO);
+  const parrafos = texto.split(/\n+/).filter((p) => p.trim().length >= MIN_PARAGRAFO);
   return parrafos.length >= 2;
 };
 
@@ -319,7 +319,7 @@ export default async function handler(req, res) {
 
     // 1) JSON-LD (NewsArticle / Article / ReportageNewsArticle).
     const jsonLD = extraerJsonLD($);
-    if (jsonLD && esTextoValido(jsonLD.cuerpo) && densidadEnlaces($, $('body')) < MAX_DENSIDAD_ENLACES) {
+    if (jsonLD && esTextoValido(jsonLD.cuerpo)) {
       extraccion = jsonLD;
       metodo = 'json-ld';
       calidad = 'alta';

@@ -12,7 +12,7 @@ import { lookup as dnsLookupCb } from 'dns';
 import { promisify } from 'util';
 import iconv from 'iconv-lite';
 
-import { DOMINIOS_PREFERIDOS } from '../config/fuentes.js';
+import { DOMINIOS_ADICIONALES, DOMINIOS_PREFERIDOS } from '../config/fuentes.js';
 import { FUENTES_RSS } from '../config/fuentes-rss.js';
 
 const dnsLookup = promisify(dnsLookupCb);
@@ -29,6 +29,7 @@ const FEED_HOSTS = FUENTES_RSS.map((fuente) => {
 
 export const ALLOWED_DOMAINS = [...new Set([
   ...DOMINIOS_PREFERIDOS.map((dominio) => dominio.toLowerCase()),
+  ...DOMINIOS_ADICIONALES.map((dominio) => dominio.toLowerCase()),
   ...FEED_HOSTS,
   'news.google.com',
 ])];
@@ -117,6 +118,14 @@ export const validateUrl = (input) => {
   return url;
 };
 
+// Valida un destino completo (allowlist + DNS + bloqueo de IP privada).
+// Se usa para validar cada salto de redireccion y es reutilizable en pruebas.
+export const validarDestinoSeguro = async (input) => {
+  const url = validateUrl(input);
+  await resolveHost(url.hostname);
+  return url;
+};
+
 export const resolveHost = async (hostname) => {
   let info;
   try {
@@ -136,7 +145,7 @@ export const resolveHost = async (hostname) => {
   return info;
 };
 
-const TIEMPO_ESPERA_MS = 8000;
+const TIEMPO_ESPERA_MS = 10000;
 const MAXIMO_BYTES = 2 * 1024 * 1024;
 const MAXIMO_REDIRECTS = 3;
 const USUARIO_AGENTE = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36';
@@ -201,31 +210,41 @@ export const secureFetch = async (input, opciones = {}) => {
     const info = await resolveHost(urlActual.hostname);
     const ip = info.address;
 
-    // Se conecta a la IP ya validada para evitar DNS rebinding, conservando el
-    // Host original. Si la conexion directa a la IP falla (p. ej. verificacion TLS
-    // por SNI), se reintenta con el hostname; el DNS ya fue validado y bloqueado
-    // si apuntaba a una direccion privada.
+    // Se conecta a la IP ya validada para evitar DNS rebinding.
+    // - HTTP: se usa la IP como host con la cabecera Host original.
+    // - HTTPS: se usa el hostname, ya que la verificacion TLS autentica el destino
+    //   y el DNS se valido inmediatamente antes de conectar.
     const urlConIp = new URL(urlActual.href);
     urlConIp.hostname = ip.includes(':') ? `[${ip}]` : ip;
 
     const cabeceras = cabeceraBasica(urlActual.hostname);
+    const esHttps = urlActual.protocol === 'https:';
     let respuesta;
     const controlador = new AbortController();
     const temporizador = setTimeout(() => controlador.abort(), tiempoEsperaMs);
 
     try {
-      try {
-        respuesta = await fetch(urlConIp.toString(), {
-          headers: cabeceras,
-          signal: controlador.signal,
-          redirect: 'manual',
-        });
-      } catch {
+      if (esHttps) {
         respuesta = await fetch(urlActual.toString(), {
           headers: cabeceras,
           signal: controlador.signal,
           redirect: 'manual',
         });
+      } else {
+        try {
+          respuesta = await fetch(urlConIp.toString(), {
+            headers: cabeceras,
+            signal: controlador.signal,
+            redirect: 'manual',
+          });
+        } catch {
+          // Si el servidor no responde a la peticion por IP, se reintenta por hostname.
+          respuesta = await fetch(urlActual.toString(), {
+            headers: cabeceras,
+            signal: controlador.signal,
+            redirect: 'manual',
+          });
+        }
       }
     } catch (error) {
       clearTimeout(temporizador);
@@ -244,11 +263,16 @@ export const secureFetch = async (input, opciones = {}) => {
         throw new SecureFetchError(400, 'Redireccion invalida');
       }
       const siguienteUrl = new URL(ubicacion, urlActual);
+      // Algunos servidores responden con un Location absoluto usando la IP de
+      // conexion. En ese caso se restaura el hostname original ya validado.
+      if (siguienteUrl.hostname === ip) {
+        siguienteUrl.hostname = urlActual.hostname;
+      }
       if (!isHostAllowed(siguienteUrl.hostname.toLowerCase())) {
         throw new SecureFetchError(403, 'La redireccion apunta a un dominio no permitido');
       }
       // Revalida dominio e IP en cada salto para evitar DNS rebinding encadenado.
-      await resolveHost(siguienteUrl.hostname);
+      await validarDestinoSeguro(siguienteUrl.href);
       urlActual = siguienteUrl;
       saltos += 1;
       continue;
