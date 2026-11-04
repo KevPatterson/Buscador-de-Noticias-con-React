@@ -1,20 +1,17 @@
 import * as cheerio from 'cheerio';
 import { Readability } from '@mozilla/readability';
 import { parseHTML } from 'linkedom';
-import { secureFetch, SecureFetchError, validateUrl } from '../src/lib/secureFetch.js';
+import { secureFetch, SecureFetchError } from '../src/lib/secureFetch.js';
 import { configurarCors } from '../src/lib/cors.js';
 import { obtenerReglas } from '../src/config/extraccion.js';
 
+// Bloque intencional: swallow de errores de cleanup en DOM (Cheerio tolera
+// operaciones sobre nodos que ya fueron removidos del documento).
+/* eslint-disable no-empty */
+
+import { normalizeText, clampText, dedupeParagraphs } from '../src/lib/textUtil.js';
+
 const asSingleValue = (value) => (Array.isArray(value) ? value[0] : value);
-
-const normalizeText = (value = '') =>
-  value
-    .replace(/\u00a0/g, ' ')
-    .replace(/[ \t]+/g, ' ')
-    .replace(/\n{3,}/g, '\n\n')
-    .trim();
-
-const clampText = (value = '', max = 10000) => value.slice(0, max);
 
 const MIN_PARAGRAFO = 40;
 const MIN_CUERPO_VALIDO = 300;
@@ -64,24 +61,6 @@ const normalizeForCompare = (value = '') =>
     .replace(/[^a-zA-Z0-9]+/g, ' ')
     .toLowerCase()
     .trim();
-
-const dedupeParagraphs = (value = '') => {
-  const seen = new Set();
-  const result = [];
-
-  value.split(/\n{2,}/).forEach((paragraph) => {
-    const cleanParagraph = normalizeText(paragraph);
-    if (!cleanParagraph) return;
-
-    const key = normalizeForCompare(cleanParagraph);
-    if (!key || seen.has(key)) return;
-
-    seen.add(key);
-    result.push(cleanParagraph);
-  });
-
-  return result.join('\n\n');
-};
 
 // Texto de un contenedor: parrafos (>= 40 caracteres), subtitulos y listas.
 const textoDeContenedor = ($, nodo) => {

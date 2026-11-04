@@ -1,6 +1,7 @@
 import { XMLParser } from 'fast-xml-parser';
 import { secureFetch, SecureFetchError, validateUrl } from '../src/lib/secureFetch.js';
 import { configurarCors } from '../src/lib/cors.js';
+import { normalizeText } from '../src/lib/textUtil.js';
 
 const parser = new XMLParser({
   ignoreAttributes: false,
