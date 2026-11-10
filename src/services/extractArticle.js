@@ -43,7 +43,7 @@ export const extractArticle = async (url, descriptionFallback = '') => {
           fecha: data.fecha || '',
           imagen: data.imagen || '',
           urlCanonica: data.urlCanonica || '',
-          metodo: data.metodo || '',
+          metodo: data.metodo || 'desconocido',
           calidad: data.calidad || 'baja',
           extraido: true,
         };

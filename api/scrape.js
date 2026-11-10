@@ -459,7 +459,7 @@ const extractFullText = ($, targetUrl = '') => {
   return dedupeParagraphs(normalizeText(container.text()));
 };
 
-const emptyResponse = (res) => res.status(200).json({ fullText: '' });
+const emptyResponse = (res) => res.status(200).json({ cuerpo: '', metodo: '', calidad: 'baja' });
 
 const extractUsingReadableProxy = async (targetUrl) => {
   try {
@@ -472,12 +472,12 @@ const extractUsingReadableProxy = async (targetUrl) => {
       },
     });
 
-    if (!response.ok) return '';
+    if (!response.ok) return { texto: '', metodo: '' };
     const rawText = await response.text();
     const plainText = cleanupProxyText(targetUrl, rawText);
-    return plainText.length >= 220 ? plainText : '';
+    return { texto: plainText.length >= 220 ? plainText : '', metodo: 'jina-proxy' };
   } catch {
-    return '';
+    return { texto: '', metodo: '' };
   }
 };
 
@@ -512,10 +512,14 @@ export default async function handler(req, res) {
     });
 
     if (!response.ok) {
-      const fullTextFromProxyOnError = await extractUsingReadableProxy(targetUrl);
-      if (fullTextFromProxyOnError) {
+      const proxyResult = await extractUsingReadableProxy(targetUrl);
+      if (proxyResult.texto) {
         res.setHeader('Cache-Control', 's-maxage=3600, stale-while-revalidate=86400');
-        return res.status(200).json({ fullText: clampText(fullTextFromProxyOnError) });
+        return res.status(200).json({ 
+          cuerpo: clampText(proxyResult.texto),
+          metodo: proxyResult.metodo,
+          calidad: 'media'
+        });
       }
       res.setHeader('Cache-Control', 's-maxage=300');
       return emptyResponse(res);
@@ -531,24 +535,39 @@ export default async function handler(req, res) {
 
     const $ = cheerio.load(html);
 
+    // Método 1: JSON-LD
     const fullTextFromJsonLd = extractFromJsonLd($);
     if (fullTextFromJsonLd) {
       res.setHeader('Cache-Control', 's-maxage=3600, stale-while-revalidate=86400');
-      return res.status(200).json({ fullText: clampText(fullTextFromJsonLd) });
+      return res.status(200).json({ 
+        cuerpo: clampText(fullTextFromJsonLd),
+        metodo: 'json-ld',
+        calidad: 'alta'
+      });
     }
 
-    cleanDom($);
-    const fullText = extractFullText($);
+    // Método 2/3: Selectores de dominio o readability
+    cleanDom($, targetUrl);
+    const fullText = extractFullText($, targetUrl);
 
     if (fullText) {
       res.setHeader('Cache-Control', 's-maxage=3600, stale-while-revalidate=86400');
-      return res.status(200).json({ fullText: clampText(fullText) });
+      return res.status(200).json({ 
+        cuerpo: clampText(fullText),
+        metodo: 'readability',
+        calidad: 'alta'
+      });
     }
 
-    const fullTextFromProxy = await extractUsingReadableProxy(targetUrl);
-    if (fullTextFromProxy) {
+    // Fallback: proxy
+    const proxyResult = await extractUsingReadableProxy(targetUrl);
+    if (proxyResult.texto) {
       res.setHeader('Cache-Control', 's-maxage=3600, stale-while-revalidate=86400');
-      return res.status(200).json({ fullText: clampText(fullTextFromProxy) });
+      return res.status(200).json({ 
+        cuerpo: clampText(proxyResult.texto),
+        metodo: proxyResult.metodo,
+        calidad: 'media'
+      });
     }
 
     res.setHeader('Cache-Control', 's-maxage=300');
