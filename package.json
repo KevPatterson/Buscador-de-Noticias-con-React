@@ -9,8 +9,10 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
+    "postbuild": "node scripts/verify-no-keys.js",
     "lint": "eslint .",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "test:extraccion": "node scripts/test-extraccion.js"
   },
   "dependencies": {
     "@emotion/react": "^11.14.0",
@@ -21,7 +23,9 @@
     "docx": "^9.5.1",
     "fast-xml-parser": "^5.5.10",
     "file-saver": "^2.0.5",
+    "iconv-lite": "^0.6.3",
     "jsdom": "^29.1.1",
+    "linkedom": "^0.18.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1"
   },

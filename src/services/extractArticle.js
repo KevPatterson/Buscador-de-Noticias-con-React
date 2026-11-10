@@ -1,50 +1,76 @@
 /**
- * Extrae el contenido limpio de un artículo vía la serverless function.
- * Si falla, devuelve el description del RSS como fallback.
+ * Extrae el contenido de un articulo.
+ *
+ * Flujo (puntos 2.1 y 2.5):
+ * 1. Si el description del RSS (incluyendo content:encoded) tiene mas de ~500
+ *    caracteres limpios, se usa directamente sin scrapeo.
+ * 2. Se consulta /api/scrape con la cascada JSON-LD > selectores de dominio >
+ *    Readability > heuristica.
+ * 3. Si nada valida, se devuelve el description del RSS con calidad "baja".
  */
 import cleanArticle from './cleanArticle.js';
 
+const LIMITE_CONTENIDO_RSS = 500;
+
 export const extractArticle = async (url, descriptionFallback = '') => {
+  const limpioFallback = limpiarDescripcionRSS(descriptionFallback);
+
+  if (limpioFallback.length >= LIMITE_CONTENIDO_RSS) {
+    return {
+      contenido: cleanArticle(limpioFallback),
+      autor: '',
+      titulo: '',
+      fecha: '',
+      imagen: '',
+      urlCanonica: '',
+      metodo: 'rss',
+      calidad: 'alta',
+      extraido: false,
+      sinScrapeo: true,
+    };
+  }
+
   try {
-    const res = await fetch(`/api/extract-article?url=${encodeURIComponent(url)}`);
-    if (res && res.ok) {
+    const res = await fetch(`/api/scrape?url=${encodeURIComponent(url)}`);
+    if (res.ok) {
       const data = await res.json();
-      if (data && data.contenido && data.contenido.trim().length > 80) {
+      const cuerpo = data && data.cuerpo ? String(data.cuerpo) : '';
+      if (cuerpo.trim().length > 80) {
         return {
-          contenido: cleanArticle(data.contenido),
+          contenido: cleanArticle(cuerpo),
           autor: data.autor || '',
           titulo: data.titulo || '',
+          fecha: data.fecha || '',
+          imagen: data.imagen || '',
+          urlCanonica: data.urlCanonica || '',
+          metodo: data.metodo || '',
+          calidad: data.calidad || 'baja',
           extraido: true,
         };
       }
     }
 
-    // Fallback: intentar el endpoint /api/scrape que ya existe en el proyecto
-    try {
-      const res2 = await fetch(`/api/scrape?url=${encodeURIComponent(url)}`);
-      if (res2 && res2.ok) {
-        const payload = await res2.json();
-        if (payload?.fullText && payload.fullText.trim().length > 80) {
-          return {
-            contenido: cleanArticle(payload.fullText),
-            autor: '',
-            extraido: true,
-          };
-        }
-      }
-    } catch (e) {
-      // ignorar
-    }
-
     return {
-      contenido: cleanArticle(limpiarDescripcionRSS(descriptionFallback)),
+      contenido: cleanArticle(limpioFallback),
       autor: '',
+      titulo: '',
+      fecha: '',
+      imagen: '',
+      urlCanonica: '',
+      metodo: 'rss-fallback',
+      calidad: 'baja',
       extraido: false,
     };
   } catch (e) {
     return {
-      contenido: limpiarDescripcionRSS(descriptionFallback),
+      contenido: cleanArticle(limpioFallback),
       autor: '',
+      titulo: '',
+      fecha: '',
+      imagen: '',
+      urlCanonica: '',
+      metodo: 'rss-fallback',
+      calidad: 'baja',
       extraido: false,
     };
   }
