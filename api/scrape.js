@@ -81,6 +81,30 @@ const stripLeadingBoilerplate = (value = '') => {
   return lines.slice(startIndex).join('\n');
 };
 
+const isErrorPage = (html = '', status = 200) => {
+  // Detecta páginas de error basándose en el contenido HTML
+  if (status >= 400) return true;
+  
+  const htmlLower = html.toLowerCase();
+  
+  // Patrones comunes de páginas de error/no encontrado
+  const errorPatterns = [
+    /404.*not\s+found/i,
+    /página.*no\s+encontrada/i,
+    /no\s+autorizado|sin\s+acceso/i,
+    /acceso\s+denegado/i,
+    /error\s+403/i,
+    /forbidden/i,
+    /error\s+404/i,
+    /page\s+not\s+found/i,
+    /<title>404</i,
+    /<title>403/i,
+    /<title>Error/i,
+  ];
+  
+  return errorPatterns.some(pattern => pattern.test(htmlLower));
+};
+
 const cutAtMarker = (value = '', markers = []) => {
   let cutIndex = -1;
 
@@ -96,9 +120,10 @@ const cutAtMarker = (value = '', markers = []) => {
 };
 
 const cleanPressLatinFirstParagraph = (text = '') => {
-  // Elimina el prefijo "Ciudad de México, X feb (Prensa Latina)" o similar
-  // Patrón: "Ciudad/Lugar, fecha mes (Agencia)" del primer párrafo
-  const presensLatinPattern = /^[A-ZÁ][a-záéíóú\s'.-]*,\s*\d{1,2}\s+[A-Za-záéíóú]+\s*\([^)]*Prensa Latina[^)]*\)\s*/i;
+  // Elimina el prefijo "Buenos Aires, 10 nov (Prensa Latina)" o similar
+  // Patrón: "Lugar, X mes/día (Agencia) Texto inicial"
+  // Captura: "Buenos Aires, 10 nov (Prensa Latina) " y lo elimina del primer párrafo
+  const presensLatinPattern = /^([A-ZÁ][a-záéíóú\s'.-]*,\s*\d{1,2}\s+[A-Za-záéíóú]+\s*\([^)]*\)\s+)+/i;
   
   const paragraphs = text.split('\n\n');
   if (paragraphs.length === 0) return text;
@@ -107,42 +132,61 @@ const cleanPressLatinFirstParagraph = (text = '') => {
   const firstParagraph = paragraphs[0];
   const cleanedFirst = firstParagraph.replace(presensLatinPattern, '').trim();
   
-  if (cleanedFirst === firstParagraph.trim()) {
-    // Si el patrón no coincidió, retorna el texto original
-    return text;
+  // Si se eliminó algo, reemplaza el primer párrafo
+  if (cleanedFirst !== firstParagraph.trim()) {
+    const result = [cleanedFirst, ...paragraphs.slice(1)].join('\n\n');
+    return result;
   }
   
-  // Reemplaza el primer párrafo limpiado en la lista
-  const result = [cleanedFirst, ...paragraphs.slice(1)].join('\n\n');
-  return result;
+  return text;
 };
 
 const splitRadioBayamoParagraphs = (text = '') => {
   // Radio Bayamo a veces extrae todo como un bloque
-  // Intenta dividir por patrones naturales: punto seguido de mayúscula
-  // Solo aplica si hay muy pocos párrafos inicialmente
+  // Intenta dividir por patrones naturales
   const paragraphs = text.split('\n\n');
   
-  // Si ya hay múltiples párrafos, devuelve el texto original
-  if (paragraphs.length > 2) return text;
+  // Si ya hay múltiples párrafos bien formados, devuelve el texto original
+  if (paragraphs.length > 3) return text;
   
   // Si el texto es muy corto, no intentes dividir
-  if (text.length < 500) return text;
+  if (text.length < 300) return text;
   
-  // Divide por "punto + espacio + mayúscula" manteniendo el contexto
+  // Divide por patrones naturales: punto seguido de mayúscula o punto-nueva línea
+  // Usa límite de palabra para evitar dividir incorrectamente
   const sentences = text.split(/(?<=[.!?])\s+(?=[A-ZÁ])/);
   
-  // Agrupa las oraciones en párrafos más lógicos (cada 2-3 oraciones)
+  // Agrupa las oraciones en párrafos más lógicos (cada 2-4 oraciones dependiendo del tamaño)
   const groupedParagraphs = [];
-  for (let i = 0; i < sentences.length; i += 2) {
-    const paragraph = sentences.slice(i, i + 2).join(' ').trim();
-    if (paragraph.length > 30) {
-      groupedParagraphs.push(paragraph);
+  let currentGroup = [];
+  let currentGroupLength = 0;
+  const targetLength = 200; // Objetivo de caracteres por párrafo
+  
+  sentences.forEach((sentence) => {
+    currentGroup.push(sentence);
+    currentGroupLength += sentence.length;
+    
+    // Si alcanzamos el objetivo o tenemos 3 oraciones, agrupa
+    if (currentGroupLength >= targetLength || currentGroup.length >= 3) {
+      const paragraph = currentGroup.join(' ').trim();
+      if (paragraph.length > 40) {
+        groupedParagraphs.push(paragraph);
+      }
+      currentGroup = [];
+      currentGroupLength = 0;
+    }
+  });
+  
+  // Agrega el último grupo si existe
+  if (currentGroup.length > 0) {
+    const lastParagraph = currentGroup.join(' ').trim();
+    if (lastParagraph.length > 40) {
+      groupedParagraphs.push(lastParagraph);
     }
   }
   
-  // Si logramos crear múltiples párrafos, úsalos
-  if (groupedParagraphs.length > 1) {
+  // Si logramos crear múltiples párrafos bien formados, úsalos
+  if (groupedParagraphs.length > 2) {
     return groupedParagraphs.join('\n\n');
   }
   
@@ -197,6 +241,7 @@ const cleanupProxyText = (targetUrl, rawText = '') => {
 
   if (host.includes('prensa-latina.cu')) {
     // Limpia el prefijo de Prensa Latina del primer párrafo
+    // Patrón más flexible: "Lugar, X mes (Agencia)"
     text = cleanPressLatinFirstParagraph(text);
   }
 
@@ -449,6 +494,12 @@ export default async function handler(req, res) {
     }
 
     const html = await response.text();
+    
+    // Valida que no sea una página de error
+    if (isErrorPage(html, response.status)) {
+      return emptyResponse(res);
+    }
+
     const $ = cheerio.load(html);
 
     const fullTextFromJsonLd = extractFromJsonLd($);
