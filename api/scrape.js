@@ -1,4 +1,5 @@
 import * as cheerio from 'cheerio';
+import { DOMAIN_RULES } from '../config/extractors.js';
 
 const asSingleValue = (value) => (Array.isArray(value) ? value[0] : value);
 
@@ -94,6 +95,60 @@ const cutAtMarker = (value = '', markers = []) => {
   return value;
 };
 
+const cleanPressLatinFirstParagraph = (text = '') => {
+  // Elimina el prefijo "Ciudad de México, X feb (Prensa Latina)" o similar
+  // Patrón: "Ciudad/Lugar, fecha mes (Agencia)" del primer párrafo
+  const presensLatinPattern = /^[A-ZÁ][a-záéíóú\s'.-]*,\s*\d{1,2}\s+[A-Za-záéíóú]+\s*\([^)]*Prensa Latina[^)]*\)\s*/i;
+  
+  const paragraphs = text.split('\n\n');
+  if (paragraphs.length === 0) return text;
+  
+  // Solo procesa el primer párrafo
+  const firstParagraph = paragraphs[0];
+  const cleanedFirst = firstParagraph.replace(presensLatinPattern, '').trim();
+  
+  if (cleanedFirst === firstParagraph.trim()) {
+    // Si el patrón no coincidió, retorna el texto original
+    return text;
+  }
+  
+  // Reemplaza el primer párrafo limpiado en la lista
+  const result = [cleanedFirst, ...paragraphs.slice(1)].join('\n\n');
+  return result;
+};
+
+const splitRadioBayamoParagraphs = (text = '') => {
+  // Radio Bayamo a veces extrae todo como un bloque
+  // Intenta dividir por patrones naturales: punto seguido de mayúscula
+  // Solo aplica si hay muy pocos párrafos inicialmente
+  const paragraphs = text.split('\n\n');
+  
+  // Si ya hay múltiples párrafos, devuelve el texto original
+  if (paragraphs.length > 2) return text;
+  
+  // Si el texto es muy corto, no intentes dividir
+  if (text.length < 500) return text;
+  
+  // Divide por "punto + espacio + mayúscula" manteniendo el contexto
+  const sentences = text.split(/(?<=[.!?])\s+(?=[A-ZÁ])/);
+  
+  // Agrupa las oraciones en párrafos más lógicos (cada 2-3 oraciones)
+  const groupedParagraphs = [];
+  for (let i = 0; i < sentences.length; i += 2) {
+    const paragraph = sentences.slice(i, i + 2).join(' ').trim();
+    if (paragraph.length > 30) {
+      groupedParagraphs.push(paragraph);
+    }
+  }
+  
+  // Si logramos crear múltiples párrafos, úsalos
+  if (groupedParagraphs.length > 1) {
+    return groupedParagraphs.join('\n\n');
+  }
+  
+  return text;
+};
+
 const cleanupProxyText = (targetUrl, rawText = '') => {
   let text = rawText;
 
@@ -138,6 +193,16 @@ const cleanupProxyText = (targetUrl, rawText = '') => {
       'All Rights Reserved',
     ];
     text = cutAtMarker(text, endMarkers);
+  }
+
+  if (host.includes('prensa-latina.cu')) {
+    // Limpia el prefijo de Prensa Latina del primer párrafo
+    text = cleanPressLatinFirstParagraph(text);
+  }
+
+  if (host.includes('radiobayamo.icrt.cu')) {
+    // Intenta dividir párrafos para Radio Bayamo
+    text = splitRadioBayamoParagraphs(text);
   }
 
   if (host.includes('efe.com')) {
@@ -219,7 +284,23 @@ const NOISE_SELECTORS = [
   '[class*="sponsor"]',
 ];
 
-const cleanDom = ($) => {
+const cleanDom = ($, targetUrl = '') => {
+  // Primero, aplicar removeSelectors específicos del dominio si existen
+  let host = '';
+  try {
+    host = new URL(targetUrl).hostname.toLowerCase();
+  } catch {
+    host = '';
+  }
+  
+  const domainRule = Object.keys(DOMAIN_RULES).find(domain => host.includes(domain));
+  if (domainRule && DOMAIN_RULES[domainRule].removeSelectors) {
+    DOMAIN_RULES[domainRule].removeSelectors.forEach((selector) => {
+      $(selector).remove();
+    });
+  }
+  
+  // Luego, aplicar selectores globales
   NOISE_SELECTORS.forEach((selector) => {
     $(selector).remove();
   });
@@ -273,8 +354,20 @@ const getParagraphsFromNode = ($, node) => {
   return chunks;
 };
 
-const getMainContainer = ($) => {
-  for (const selector of CONTENT_SELECTORS) {
+const getMainContainer = ($, targetUrl = '') => {
+  let host = '';
+  try {
+    host = new URL(targetUrl).hostname.toLowerCase();
+  } catch {
+    host = '';
+  }
+  
+  const domainRule = Object.keys(DOMAIN_RULES).find(domain => host.includes(domain));
+  const selectorsToTry = (domainRule && DOMAIN_RULES[domainRule].contentSelectors) 
+    ? DOMAIN_RULES[domainRule].contentSelectors 
+    : CONTENT_SELECTORS;
+  
+  for (const selector of selectorsToTry) {
     const candidate = $(selector).first();
     if (!candidate.length) continue;
 
@@ -286,8 +379,8 @@ const getMainContainer = ($) => {
   return body.length ? body : $.root();
 };
 
-const extractFullText = ($) => {
-  const container = getMainContainer($);
+const extractFullText = ($, targetUrl = '') => {
+  const container = getMainContainer($, targetUrl);
   let paragraphs = getParagraphsFromNode($, container);
 
   if (paragraphs.length === 0) {

@@ -10,6 +10,16 @@ export const FUENTES_RSS = [
     feed: 'https://www.tribuna.cu/feed/',
   },
   {
+    dominio: 'escambray.cu',
+    nombre: 'Escambray',
+    feed: 'https://www.escambray.cu/feed/',
+  },
+  {
+    dominio: 'cubadebate.cu',
+    nombre: 'Cubadebate',
+    feed: 'http://www.cubadebate.cu/feed/',
+  },
+  {
     dominio: 'giron.cu',
     nombre: 'Giron',
     feed: 'https://www.giron.cu/feed/',
