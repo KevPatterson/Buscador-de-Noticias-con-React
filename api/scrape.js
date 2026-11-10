@@ -1,4 +1,6 @@
 import * as cheerio from 'cheerio';
+import { validateUrl } from '../src/lib/secureFetch.js';
+import { configurarCors } from '../src/lib/cors.js';
 import { DOMAIN_RULES } from '../config/extractors.js';
 
 const asSingleValue = (value) => (Array.isArray(value) ? value[0] : value);
@@ -480,6 +482,9 @@ const extractUsingReadableProxy = async (targetUrl) => {
 };
 
 export default async function handler(req, res) {
+  const esPreflight = configurarCors(req, res);
+  if (esPreflight) return;
+
   const urlParam = asSingleValue(req.query.url);
 
   if (!urlParam) return emptyResponse(res);
@@ -487,8 +492,13 @@ export default async function handler(req, res) {
   let targetUrl;
   try {
     targetUrl = decodeURIComponent(urlParam);
-    new URL(targetUrl);
-  } catch {
+    // Valida URL contra allowlist y SSRF ANTES de hacer fetch
+    validateUrl(targetUrl);
+  } catch (error) {
+    res.setHeader('Cache-Control', 's-maxage=300');
+    if (error.statusCode && error.statusCode >= 400 && error.statusCode < 500) {
+      return res.status(error.statusCode).json({ status: 'error', message: error.message });
+    }
     return emptyResponse(res);
   }
 
@@ -504,8 +514,10 @@ export default async function handler(req, res) {
     if (!response.ok) {
       const fullTextFromProxyOnError = await extractUsingReadableProxy(targetUrl);
       if (fullTextFromProxyOnError) {
+        res.setHeader('Cache-Control', 's-maxage=3600, stale-while-revalidate=86400');
         return res.status(200).json({ fullText: clampText(fullTextFromProxyOnError) });
       }
+      res.setHeader('Cache-Control', 's-maxage=300');
       return emptyResponse(res);
     }
 
@@ -513,6 +525,7 @@ export default async function handler(req, res) {
     
     // Valida que no sea una página de error
     if (isErrorPage(html, response.status)) {
+      res.setHeader('Cache-Control', 's-maxage=300');
       return emptyResponse(res);
     }
 
@@ -520,19 +533,28 @@ export default async function handler(req, res) {
 
     const fullTextFromJsonLd = extractFromJsonLd($);
     if (fullTextFromJsonLd) {
+      res.setHeader('Cache-Control', 's-maxage=3600, stale-while-revalidate=86400');
       return res.status(200).json({ fullText: clampText(fullTextFromJsonLd) });
     }
 
     cleanDom($);
     const fullText = extractFullText($);
 
-    if (fullText) return res.status(200).json({ fullText: clampText(fullText) });
+    if (fullText) {
+      res.setHeader('Cache-Control', 's-maxage=3600, stale-while-revalidate=86400');
+      return res.status(200).json({ fullText: clampText(fullText) });
+    }
 
     const fullTextFromProxy = await extractUsingReadableProxy(targetUrl);
-    if (fullTextFromProxy) return res.status(200).json({ fullText: clampText(fullTextFromProxy) });
+    if (fullTextFromProxy) {
+      res.setHeader('Cache-Control', 's-maxage=3600, stale-while-revalidate=86400');
+      return res.status(200).json({ fullText: clampText(fullTextFromProxy) });
+    }
 
+    res.setHeader('Cache-Control', 's-maxage=300');
     return emptyResponse(res);
   } catch {
+    res.setHeader('Cache-Control', 's-maxage=300');
     return emptyResponse(res);
   }
 }

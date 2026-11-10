@@ -1,220 +1,194 @@
-# 🚀 Checklist de Deployment - Solución de Scraping
+# CUBAPRESS - Checklist de Despliegue a Vercel
 
-## Pre-Deployment (5 min)
+Este documento describe los pasos necesarios para desplegar CUBAPRESS de forma segura en Vercel.
 
-- [ ] **Revisión de código**
-  ```bash
-  git diff config/extractors.js
-  git diff api/scrape.js
-  git diff src/config/fuentes-rss.js
-  ```
+## 🔒 Seguridad de API Keys
 
-- [ ] **Ejecutar tests locales**
-  ```bash
-  node scripts/test-scraping-fixes.js
-  ```
-  Esperado: ✓ 3 tests pasando
+### Paso 1: Configuración de Variables de Entorno en Vercel
 
-- [ ] **Verificar sintaxis**
-  ```bash
-  npm run lint  # Si existe
-  ```
+Las claves de API se deben configurar **sin el prefijo `VITE_`** para evitar que se expongan en el bundle del navegador.
 
----
+**IMPORTANTE**: Las claves se usan SOLO en el servidor (funciones serverless en `/api`). Nunca están disponibles en el navegador.
 
-## Deployment a Staging (15 min)
+**Variables a configurar en Vercel Dashboard → Settings → Environment Variables:**
 
-- [ ] **Hacer commit (si usa Git)**
-  ```bash
-  git add config/extractors.js api/scrape.js src/config/fuentes-rss.js
-  git commit -m "fix: Agregar selectores para Escambray, Cubadebate, Tribuna; limpiar Prensa Latina; dividir párrafos Radio Bayamo"
-  git push origin develop  # O la rama de staging
-  ```
-
-- [ ] **Build del proyecto**
-  ```bash
-  npm install  # Si hay cambios en dependencias
-  npm run build
-  ```
-
-- [ ] **Desplegar a staging**
-  ```bash
-  # Comando específico de tu proyecto (Vercel, Docker, etc.)
-  # Ejemplo para Vercel:
-  vercel --prod --target staging
-  ```
-
----
-
-## Validation en Staging (20 min)
-
-### Test con URLs Reales
-
-**1. Escambray**
-```bash
-curl "http://staging-url/api/scrape?url=https://www.escambray.cu/2026/"
 ```
-✓ Verificar: Contenido extraído, múltiples párrafos, limpio
-
-**2. Cubadebate**
-```bash
-curl "http://staging-url/api/scrape?url=http://www.cubadebate.cu/"
+NEWSDATA_API_KEY=<tu_clave_de_newsdata>
+THENEWSAPI_KEY=<tu_clave_de_thenewsapi>
+NEWSAPI_KEY=<tu_clave_de_newsapi>
+VERCEL_URL=<tu_dominio>.vercel.app
 ```
-✓ Verificar: Contenido extraído, sin datos de autor
 
-**3. Tribuna**
+**Obtener las claves:**
+- **NewsData.io**: https://newsdata.io (gratis, ~100 req/día)
+- **TheNewsAPI**: https://thenewsapi.com (gratis, ~1000 req/mes)
+- **NewsAPI.org**: https://newsapi.org (freemium, ~500 req/mes)
+
+### Paso 2: Verificar Que No Hay Claves Expuestas
+
+Después de desplegar, verificar que el bundle no contiene las claves:
+
 ```bash
-curl "http://staging-url/api/scrape?url=https://www.tribuna.cu/"
+npm run build
+# Verifica automáticamente (postbuild)
 ```
-✓ Verificar: Contenido extraído correctamente
 
-**4. Prensa Latina (Limpieza)**
-```bash
-curl "http://staging-url/api/scrape?url=https://www.prensa-latina.cu/2025/05/"
+Si el script `postbuild` falla, hay claves expuestas. NO desplegar.
+
+### Paso 3: Rotar Claves Anteriores (Primera Vez)
+
+Si había claves públicamente expuestas en una versión anterior:
+1. Revoca o regenera inmediatamente todas las claves en cada servicio
+2. Genera nuevas claves
+3. Configúralas en Vercel
+4. Haz deploy
+
+## 🚀 Despliegue en Vercel
+
+### Paso 1: Conectar Repositorio
+
+1. Ve a https://vercel.com/new
+2. Selecciona tu repositorio de GitHub/GitLab/Bitbucket
+3. Elige "CUBAPRESS" como proyecto
+
+### Paso 2: Configurar Variables de Entorno
+
+En **Vercel Dashboard → Project Settings → Environment Variables**:
+
 ```
-✓ Verificar: Primer párrafo NO tiene "Ciudad de X, fecha (Prensa Latina)"
-
-**5. Radio Bayamo (División)**
-```bash
-curl "http://staging-url/api/scrape?url=https://www.radiobayamo.icrt.cu/"
+NEWSDATA_API_KEY = <valor>
+THENEWSAPI_KEY = <valor>
+NEWSAPI_KEY = <valor>
+VERCEL_URL = auto-rellenado (ejemplo: cubapress.vercel.app)
 ```
-✓ Verificar: Múltiples párrafos en el resultado
 
-### Validación de RSS Feeds
-- [ ] Verificar que Escambray aparece en la lista de fuentes
-- [ ] Verificar que Cubadebate aparece en la lista de fuentes
-- [ ] Consumir feed de Escambray: `https://www.escambray.cu/feed/`
-- [ ] Consumir feed de Cubadebate: `http://www.cubadebate.cu/feed/`
+**Importante**: Los nombres NO llevan `VITE_` prefix.
 
-### Monitores/Logs
-- [ ] No hay errores de JavaScript en console
-- [ ] No hay errores en logs del servidor
-- [ ] No hay timeouts en llamadas de scraping
-
----
-
-## Production Deployment (10 min)
-
-- [ ] **Merge a main/master (si usa Git)**
-  ```bash
-  git checkout main
-  git pull origin main
-  git merge develop  # O tu rama de staging
-  git push origin main
-  ```
-
-- [ ] **Desplegar a producción**
-  ```bash
-  # Comando específico de tu proyecto
-  # Ejemplo para Vercel:
-  vercel --prod
-  ```
-
-- [ ] **Verificar deployment**
-  - [ ] Build completó exitosamente
-  - [ ] No hay errores en logs
-  - [ ] DNS está correcto
-
----
-
-## Post-Deployment (15 min)
-
-### Validación en Producción
-- [ ] URLs reales funcionan (mismo testing que staging)
-- [ ] Feeds RSS están siendo consumidos
-- [ ] Noticias nuevas aparecen en la interfaz
-- [ ] No hay regresiones en otras fuentes
-
-### Monitoreo
-- [ ] Configurar alertas si disponible:
-  - [ ] Tasa de error de scraping > 5%
-  - [ ] Latencia de scraping > 5s
-  - [ ] Fallos en feeds RSS
-
-- [ ] Revisar logs periódicamente:
-  ```bash
-  # Ver últimas 100 líneas de logs
-  tail -100 logs/scraping.log
-  ```
-
-### Comunicación
-- [ ] Notificar al equipo que los cambios están en producción
-- [ ] Documentar en el sistema de tickets/issues que se completó
-- [ ] Compartir enlace a `docs/SCRAPING_SOLUTION.md` con el equipo
-
----
-
-## Rollback (Si es Necesario)
-
-Si algo sale mal en producción:
+### Paso 3: Desplegar
 
 ```bash
-# Opción 1: Revert commit
-git revert HEAD
 git push origin main
-
-# Opción 2: Restaurar versión anterior
-git checkout HEAD~1 -- config/extractors.js api/scrape.js src/config/fuentes-rss.js
-git commit -m "revert: Revert scraping fixes"
-git push origin main
-
-# Opción 3: Re-desplegar versión anterior
-vercel --prod --target production --version [commit-hash]
+# Vercel detecta automáticamente y despliega
 ```
 
+O manualmente:
+```bash
+vercel --prod
+```
+
+### Paso 4: Validar Despliegue
+
+1. Abre https://tu-dominio.vercel.app
+2. Busca una noticia
+3. Verifica en DevTools (F12) que el bundle NO contiene ninguna clave API
+4. Verifica en Network que `/api/news` devuelve artículos correctamente
+
+## 📋 Flujo de Fallback de APIs
+
+La aplicación intenta obtener noticias en este orden:
+
+1. **NewsData.io** (si `NEWSDATA_API_KEY` está configurada)
+   - Mejor para búsquedas específicas por dominio
+   - Soporta filtrado por `domainurl`
+   
+2. **TheNewsAPI** (si `THENEWSAPI_KEY` está configurada)
+   - Buena alternativa si NewsData está agotada
+   - Soporta búsqueda y categorías
+   
+3. **NewsAPI.org** (si `NEWSAPI_KEY` está configurada)
+   - Fallback adicional
+   - Limitaciones en dominio específico
+   
+4. **RSS Directo** (sin API key)
+   - SIEMPRE disponible como último recurso
+   - Alimenta desde fuentes RSS configuradas en `src/config/fuentes-rss.js`
+
+**Ventaja**: La app nunca se queda sin noticias, aunque todas las APIs se agoten.
+
+## 🔐 Seguridad en Producción
+
+### CORS
+
+- Solo se permite el dominio de Vercel (automático con `VERCEL_URL`)
+- En desarrollo, se permite `localhost:5173` y `127.0.0.1:5173`
+- Modificar en `src/lib/cors.js` si es necesario
+
+### SSRF (Server-Side Request Forgery)
+
+Las funciones `/api/rss` y `/api/scrape` validan:
+
+- ✅ URL debe estar en allowlist (dominios cubanos autorizados)
+- ✅ Valida DNS antes de conectar
+- ✅ Bloquea IPs privadas, loopback y link-local
+- ✅ Máximo 3 redirects con revalidación en cada salto
+- ✅ Timeout de 10 segundos
+- ✅ Máximo 2 MB por respuesta
+- ✅ Solo Content-Type `text/html`, `application/xml`, `text/xml`, `application/rss+xml`
+
+**No requiere configuración adicional.**
+
+## ✅ Checklist Pre-Despliegue
+
+- [ ] Nuevas variables de entorno configuradas en Vercel (SIN `VITE_`)
+- [ ] Claves rotadas si fueron expuestas anteriormente
+- [ ] `npm run build` pasa sin errores
+- [ ] `npm run lint` sin warnings críticos
+- [ ] Repositorio en `git push` (Vercel despliega automáticamente)
+- [ ] DevTools verifica que bundle no tiene claves API
+- [ ] `/api/news` devuelve artículos correctamente
+- [ ] `/api/rss?feed=...` funciona
+- [ ] Búsqueda funciona desde la UI
+
+## 📞 Solucionar Problemas
+
+### "Error: Falta parametro url" en /api/scrape
+
+- Verificar que la URL está URL-encodada correctamente
+- Verificar que el dominio está en la allowlist
+
+### "Error: El dominio no está en la lista de permitidos"
+
+- Agregar el dominio a `src/config/fuentes.js` → `DOMINIOS_PREFERIDOS`
+- Re-desplegar
+
+### "No hay artículos" o "Timeout"
+
+- Verificar que al menos una clave de API está configurada
+- Consultar logs en Vercel Dashboard (Function Logs)
+- Si todas las APIs están agotadas, debería caer a RSS (sin claves)
+
+### "Clave de API expuesta en el bundle"
+
+- Ejecutar `npm run build` localmente y revisar `/dist`
+- Buscar manualmente qué variable está escapando
+- Nunca prefixar con `VITE_`
+- Revisar imports en componentes React
+
+## 🔄 Actualizar en Futuro
+
+### Agregar nueva fuente RSS
+
+1. Editar `src/config/fuentes-rss.js`
+2. Agregar nuevo objeto `{ dominio, nombre, feed }`
+3. Validar en local: `node scripts/test-extraccion.js`
+4. Commit y push (Vercel despliega automático)
+
+### Ajustar selectores CSS
+
+1. Editar `config/extractors.js` → `DOMAIN_RULES`
+2. Agregar o actualizar `removeSelectors` y `contentSelectors` por dominio
+3. Testear: `npm run build`
+4. Commit y push
+
+### Rotar API Keys
+
+1. Generar nuevas claves en cada servicio (NewsData, TheNewsAPI, NewsAPI)
+2. Actualizar en Vercel Dashboard
+3. Vercel redeploy automático (puede tomar 1-2 min)
+4. Verificar que funciona
+5. Revocar/invalidar las claves antiguas en cada servicio
+
 ---
 
-## Troubleshooting Rápido
-
-| Problema | Causa Probable | Solución |
-|----------|---|---|
-| "No hay noticias de Escambray" | Feed inactivo | Verificar: `curl https://www.escambray.cu/feed/` |
-| "Prensa Latina sigue sucio" | Regex no coincide | Revisar formato actual en el sitio |
-| "Radio Bayamo todo en 1 párrafo" | Estructura HTML cambió | Inspeccionar HTML, ajustar selectores |
-| Error de sintaxis | Typo en código | Ejecutar `npm run lint`, revisar diff |
-| Timeout en scraping | Red lenta | Aumentar timeout en config (si aplica) |
-
----
-
-## Verificación Final
-
-### Checklist de Validación
-- [ ] Todas las 5 fuentes problemas están resueltas
-- [ ] Tests unitarios pasando: `✓ 3/3`
-- [ ] Build sin errores
-- [ ] Staging validado
-- [ ] Producción validada
-- [ ] Logs sin errores críticos
-- [ ] Documentación actualizada
-
-### Sign-off
-- [ ] Code Review completado
-- [ ] QA completado
-- [ ] Product Owner aprueba
-
----
-
-## Documentación de Referencia
-
-- **Detalles técnicos**: `docs/SCRAPING_SOLUTION.md`
-- **Guía de implementación**: `docs/IMPLEMENTATION_GUIDE.md`
-- **Resumen ejecutivo**: `docs/SUMMARY.md`
-- **Tests unitarios**: `scripts/test-scraping-fixes.js`
-
----
-
-## Contacto de Soporte
-
-Si necesitas ayuda durante el deployment:
-1. Revisar logs del servidor
-2. Ejecutar tests locales: `node scripts/test-scraping-fixes.js`
-3. Consultar documentación en `/docs`
-4. Contactar al equipo de desarrollo
-
----
-
-**Tiempo Estimado Total**: ~1 hora  
-**Complejidad**: Media (ajustes simples si es necesario)  
-**Riesgo**: Bajo (cambios no-invasivos, compatible hacia atrás)
-
-✅ **Listo para deployment**
+**Última actualización**: Noviembre 2026
+**Autor**: Clavisoft

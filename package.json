@@ -12,7 +12,8 @@
     "postbuild": "node scripts/verify-no-keys.js",
     "lint": "eslint .",
     "preview": "vite preview",
-    "test:extraccion": "node scripts/test-extraccion.js"
+    "test:extraccion": "node scripts/test-extraccion.js",
+    "test:ssrf": "node scripts/test-ssrf.js"
   },
   "dependencies": {
     "@emotion/react": "^11.14.0",
