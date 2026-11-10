@@ -369,6 +369,48 @@ const cleanDom = ($, targetUrl = '') => {
   });
 };
 
+const extraerMetadatosJsonLd = ($) => {
+  const metadatos = { titulo: '', autor: '', fecha: '', imagen: '', urlCanonica: '' };
+
+  $('script[type="application/ld+json"]').each((_, element) => {
+    const raw = $(element).contents().text();
+    if (!raw) return;
+
+    try {
+      const parsed = JSON.parse(raw);
+      const walk = (value) => {
+        if (Array.isArray(value)) {
+          value.forEach(walk);
+          return;
+        }
+        if (!value || typeof value !== 'object') return;
+
+        const type = String(value['@type'] || '').toLowerCase();
+        if (type.includes('article') || type.includes('newsarticle')) {
+          if (value.headline && !metadatos.titulo) metadatos.titulo = String(value.headline).slice(0, 200);
+          if (value.author && !metadatos.autor) {
+            if (typeof value.author === 'string') metadatos.autor = value.author;
+            else if (value.author[0]?.name) metadatos.autor = value.author[0].name;
+          }
+          if (value.datePublished && !metadatos.fecha) metadatos.fecha = value.datePublished;
+          if (value.image && !metadatos.imagen) {
+            if (typeof value.image === 'string') metadatos.imagen = value.image;
+            else if (value.image[0]?.url) metadatos.imagen = value.image[0].url;
+          }
+          if (value.url && !metadatos.urlCanonica) metadatos.urlCanonica = value.url;
+        }
+
+        Object.values(value).forEach(walk);
+      };
+      walk(parsed);
+    } catch {
+      return;
+    }
+  });
+
+  return metadatos;
+};
+
 const walkJson = (value, collector) => {
   if (Array.isArray(value)) {
     value.forEach((item) => walkJson(item, collector));
@@ -459,7 +501,16 @@ const extractFullText = ($, targetUrl = '') => {
   return dedupeParagraphs(normalizeText(container.text()));
 };
 
-const emptyResponse = (res) => res.status(200).json({ cuerpo: '', metodo: '', calidad: 'baja' });
+const emptyResponse = (res) => res.status(200).json({ 
+  cuerpo: '', 
+  metodo: '', 
+  calidad: 'baja',
+  autor: '',
+  titulo: '',
+  fecha: '',
+  imagen: '',
+  urlCanonica: '',
+});
 
 const extractUsingReadableProxy = async (targetUrl) => {
   try {
@@ -518,7 +569,12 @@ export default async function handler(req, res) {
         return res.status(200).json({ 
           cuerpo: clampText(proxyResult.texto),
           metodo: proxyResult.metodo,
-          calidad: 'media'
+          calidad: 'media',
+          autor: '',
+          titulo: '',
+          fecha: '',
+          imagen: '',
+          urlCanonica: '',
         });
       }
       res.setHeader('Cache-Control', 's-maxage=300');
@@ -535,14 +591,22 @@ export default async function handler(req, res) {
 
     const $ = cheerio.load(html);
 
-    // Método 1: JSON-LD
+    // Extrae metadatos de JSON-LD si están disponibles
+    const metadatos = extraerMetadatosJsonLd($);
+
+    // Método 1: JSON-LD para contenido
     const fullTextFromJsonLd = extractFromJsonLd($);
     if (fullTextFromJsonLd) {
       res.setHeader('Cache-Control', 's-maxage=3600, stale-while-revalidate=86400');
       return res.status(200).json({ 
         cuerpo: clampText(fullTextFromJsonLd),
         metodo: 'json-ld',
-        calidad: 'alta'
+        calidad: 'alta',
+        autor: metadatos.autor,
+        titulo: metadatos.titulo,
+        fecha: metadatos.fecha,
+        imagen: metadatos.imagen,
+        urlCanonica: metadatos.urlCanonica,
       });
     }
 
@@ -555,7 +619,12 @@ export default async function handler(req, res) {
       return res.status(200).json({ 
         cuerpo: clampText(fullText),
         metodo: 'readability',
-        calidad: 'alta'
+        calidad: 'alta',
+        autor: metadatos.autor,
+        titulo: metadatos.titulo,
+        fecha: metadatos.fecha,
+        imagen: metadatos.imagen,
+        urlCanonica: metadatos.urlCanonica,
       });
     }
 
@@ -566,7 +635,12 @@ export default async function handler(req, res) {
       return res.status(200).json({ 
         cuerpo: clampText(proxyResult.texto),
         metodo: proxyResult.metodo,
-        calidad: 'media'
+        calidad: 'media',
+        autor: metadatos.autor,
+        titulo: metadatos.titulo,
+        fecha: metadatos.fecha,
+        imagen: metadatos.imagen,
+        urlCanonica: metadatos.urlCanonica,
       });
     }
 
