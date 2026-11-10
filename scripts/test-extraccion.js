@@ -1,104 +1,147 @@
-// Script de pruebas de extracción de contenido
-// Valida que la cascada de métodos funciona correctamente
-// Uso: node scripts/test-extraccion.js
+/**
+ * Script de pruebas para validar la extracción de contenido de artículos.
+ * Ejecuta scraping en un fixture de URLs reales y reporta:
+ * - Éxito/fallo
+ * - Método usado (JSON-LD, selectores, readability, heurística, RSS)
+ * - Longitud del texto extraído
+ * - Tiempo de extracción
+ * - Calidad (alta/media/baja)
+ */
 
-import { spawn } from 'child_process';
+const COLORES = {
+  reset: '\x1b[0m',
+  bright: '\x1b[1m',
+  red: '\x1b[31m',
+  green: '\x1b[32m',
+  yellow: '\x1b[33m',
+  blue: '\x1b[34m',
+};
 
-// URLs reales de fuentes cubanas para pruebas
-const FIXTURES = [
+const FIXTURE_URLS = [
   {
-    url: 'https://cubadebate.cu/',
-    minChars: 100,
-    fuente: 'Cubadebate',
+    url: 'https://cubadebate.cu/noticias/2024/11/economia/',
+    minChars: 300,
+    nombre: 'Cubadebate',
   },
   {
-    url: 'https://www.granma.cu/',
-    minChars: 100,
-    fuente: 'Granma',
+    url: 'https://granma.cu/',
+    minChars: 300,
+    nombre: 'Granma',
   },
   {
     url: 'https://www.juventudrebelde.cu/',
-    minChars: 100,
-    fuente: 'Juventud Rebelde',
+    minChars: 300,
+    nombre: 'Juventud Rebelde',
+  },
+  {
+    url: 'https://www.acn.cu/',
+    minChars: 300,
+    nombre: 'ACN',
+  },
+  {
+    url: 'https://tribuna.cu/',
+    minChars: 300,
+    nombre: 'Tribuna',
   },
 ];
 
-const formatearFila = (url, pasa, metodo, caracteres, tiempo, calidad) => {
-  const pasaMarca = pasa ? '✓' : '✗';
-  const urlTrunc = url.length > 40 ? `${url.slice(0, 37)}...` : url;
+const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
-  return [
-    pasaMarca.padEnd(3),
-    urlTrunc.padEnd(45),
-    metodo.padEnd(18),
-    String(caracteres).padStart(10),
-    `${tiempo}ms`.padStart(10),
-    calidad.padEnd(8),
-  ].join(' | ');
-};
-
-const ejecutarPruebas = async () => {
-  console.log('\n📋 PRUEBAS DE EXTRACCIÓN DE CONTENIDO\n');
-  console.log(
-    'Estado | URL                                            | Método             | Caracteres |   Tiempo | Calidad\n' +
-      '-------|-----------------------------------------------|-------------------|------------|----------|--------'
-  );
-
-  let pasadas = 0;
-  let fallidas = 0;
-
-  for (const fixture of FIXTURES) {
+const testExtraccion = async () => {
+  console.log(`\n${COLORES.bright}${COLORES.blue}=== PRUEBA DE EXTRACCIÓN DE CONTENIDO ===${COLORES.reset}\n`);
+  
+  const resultados = [];
+  
+  for (const fixture of FIXTURE_URLS) {
+    const { url, minChars, nombre } = fixture;
     const inicio = Date.now();
-    let resultado = {
-      pasa: false,
-      metodo: 'error',
-      caracteres: 0,
-      tiempo: 0,
-      calidad: 'n/a',
-    };
-
+    
     try {
-      // Nota: En producción, llamaría a /api/scrape?url=...
-      // Por ahora, simulamos una respuesta
-      const respuesta = await fetch(`/api/scrape?url=${encodeURIComponent(fixture.url)}`)
-        .catch(() => ({
-          ok: false,
-          json: async () => ({ fullText: '' }),
-        }));
-
-      const data = respuesta.ok ? await respuesta.json() : { fullText: '' };
-      const texto = data.fullText || '';
-      const caracteres = texto.length;
-
-      resultado.caracteres = caracteres;
-      resultado.tiempo = Date.now() - inicio;
-      resultado.pasa = caracteres >= fixture.minChars;
-      resultado.metodo = caracteres > 500 ? 'JSON-LD/selectores' : caracteres > 0 ? 'readability' : 'error';
-      resultado.calidad = caracteres >= 1000 ? 'alta' : caracteres >= 300 ? 'media' : 'baja';
-
-      if (resultado.pasa) pasadas += 1;
-      else fallidas += 1;
-    } catch (e) {
-      resultado.tiempo = Date.now() - inicio;
-      resultado.metodo = 'error';
-      fallidas += 1;
+      const encodedUrl = encodeURIComponent(url);
+      const response = await fetch(`http://localhost:5173/api/scrape?url=${encodedUrl}`);
+      
+      if (!response.ok) {
+        resultados.push({
+          url: nombre,
+          resultado: `${COLORES.red}✗ FALLA${COLORES.reset}`,
+          metodo: 'N/A',
+          caracteres: 0,
+          tiempo: Date.now() - inicio,
+          calidad: 'N/A',
+        });
+        continue;
+      }
+      
+      const data = await response.json();
+      const cuerpo = data.cuerpo || '';
+      const longitud = cuerpo.length;
+      const tiempo = Date.now() - inicio;
+      const pasa = longitud >= minChars;
+      
+      resultados.push({
+        url: nombre,
+        resultado: pasa ? `${COLORES.green}✓ PASA${COLORES.reset}` : `${COLORES.yellow}⚠ CORTO${COLORES.reset}`,
+        metodo: data.metodo || 'desconocido',
+        caracteres: longitud,
+        tiempo: `${tiempo}ms`,
+        calidad: data.calidad || 'baja',
+      });
+    } catch (error) {
+      resultados.push({
+        url: nombre,
+        resultado: `${COLORES.red}✗ ERROR${COLORES.reset}`,
+        metodo: 'N/A',
+        caracteres: 0,
+        tiempo: `${Date.now() - inicio}ms`,
+        calidad: 'N/A',
+      });
     }
-
-    console.log(
-      formatearFila(
-        fixture.url,
-        resultado.pasa,
-        resultado.metodo,
-        resultado.caracteres,
-        resultado.tiempo,
-        resultado.calidad
-      )
-    );
+    
+    // Espera un poco entre solicitudes para no sobrecargar
+    await sleep(1000);
   }
-
-  console.log(`\n📊 Resultados: ${pasadas} pasadas, ${fallidas} fallidas\n`);
-
-  process.exit(fallidas > 0 ? 1 : 0);
+  
+  // Imprime tabla
+  console.log(
+    `${COLORES.bright}URL${COLORES.reset}` + ' '.repeat(30) + ' | ' + 
+    `${COLORES.bright}Estado${COLORES.reset}` + ' '.repeat(12) + ' | ' +
+    `${COLORES.bright}Método${COLORES.reset}` + ' '.repeat(12) + ' | ' +
+    `${COLORES.bright}Caracteres${COLORES.reset}` + ' | ' +
+    `${COLORES.bright}Tiempo${COLORES.reset}` + ' | ' +
+    `${COLORES.bright}Calidad${COLORES.reset}`
+  );
+  
+  console.log('-'.repeat(120));
+  
+  resultados.forEach((resultado) => {
+    const padUrl = resultado.url.padEnd(40);
+    const padResultado = String(resultado.resultado).padEnd(20);
+    const padMetodo = String(resultado.metodo).padEnd(14);
+    const padChars = String(resultado.caracteres).padStart(10);
+    const padTiempo = String(resultado.tiempo).padStart(8);
+    const padCalidad = String(resultado.calidad).padStart(8);
+    
+    console.log(
+      `${padUrl} | ${padResultado} | ${padMetodo} | ${padChars} | ${padTiempo} | ${padCalidad}`
+    );
+  });
+  
+  // Resumen
+  const pases = resultados.filter((r) => r.resultado.includes('✓')).length;
+  const total = resultados.length;
+  
+  console.log(`\n${COLORES.bright}Resumen: ${pases}/${total} pruebas exitosas${COLORES.reset}`);
+  
+  if (pases === total) {
+    console.log(`${COLORES.green}✓ Todas las pruebas pasaron${COLORES.reset}\n`);
+    process.exit(0);
+  } else {
+    console.log(`${COLORES.yellow}⚠ ${total - pases} prueba(s) necesitan ajuste${COLORES.reset}\n`);
+    process.exit(1);
+  }
 };
 
-ejecutarPruebas().catch(console.error);
+testExtraccion().catch((error) => {
+  console.error(`${COLORES.red}\nError fatal: ${error.message}${COLORES.reset}`);
+  process.exit(1);
+});
