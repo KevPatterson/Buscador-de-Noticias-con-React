@@ -8,6 +8,15 @@ export const FUENTES_RSS = [
     dominio: 'tribuna.cu',
     nombre: 'Tribuna de La Habana',
     feed: 'https://www.tribuna.cu/feed/',
+    // URLs a excluir de Tribuna (no son noticias reales)
+    excludePatterns: [
+      '/pagina-ejemplo/',
+      '/sin-acceso/',
+      '/ediciones-impresas/',
+      '/contacto/',
+      '/politica-privacidad/',
+      '/avisos-legales/',
+    ],
   },
   {
     dominio: 'escambray.cu',
@@ -20,9 +29,39 @@ export const FUENTES_RSS = [
     feed: 'http://www.cubadebate.cu/feed/',
   },
   {
+    dominio: 'granma.cu',
+    nombre: 'Granma',
+    feed: 'https://www.granma.cu/feed/',
+  },
+  {
+    dominio: 'juventudrebelde.cu',
+    nombre: 'Juventud Rebelde',
+    feed: 'https://www.juventudrebelde.cu/feed/',
+  },
+  {
+    dominio: 'acn.cu',
+    nombre: 'ACN',
+    feed: 'https://www.acn.cu/feed/',
+  },
+  {
+    dominio: 'radioreloj.cu',
+    nombre: 'Radio Reloj',
+    feed: 'https://www.radioreloj.cu/feed/',
+  },
+  {
     dominio: 'giron.cu',
     nombre: 'Giron',
     feed: 'https://www.giron.cu/feed/',
+  },
+  {
+    dominio: '5septiembre.cu',
+    nombre: '5 de Septiembre',
+    feed: 'https://www.5septiembre.cu/feed/',
+  },
+  {
+    dominio: 'jit.cu',
+    nombre: 'JIT Deporte',
+    feed: 'https://www.jit.cu/feed/',
   },
   {
     dominio: 'tvbrics.com',

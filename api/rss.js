@@ -57,7 +57,7 @@ const pickImage = (item) => {
 
 // Descarga y parsea un feed RSS aplicando los controles de SSRF.
 // Usado tanto por el handler /api/rss como por el fallback de /api/news.
-export const fetchFeed = async (feedUrl) => {
+export const fetchFeed = async (feedUrl, config = {}) => {
   // validateUrl lanza SecureFetchError (400/403/502) para URLs invalidas o no permitidas.
   validateUrl(feedUrl);
 
@@ -83,28 +83,40 @@ export const fetchFeed = async (feedUrl) => {
   const sourceName = pickText(channel?.title) || new URL(feedUrl).hostname;
   const sourceDomain = new URL(feedUrl).hostname;
 
-  const results = itemArray.slice(0, 20).map((item) => {
-    const descripcion = pickText(item?.description) || pickText(item?.summary) || '';
-    const contentEncoded = pickText(item?.['content:encoded']) || '';
-    // Punto 2.1: si el feed trae contenido completo (content:encoded con mas de ~500
-    // caracteres limpios), se usa directamente y no hace falta scrapeo.
-    const description =
-      contentEncoded && normalizeText(contentEncoded).length > 500
-        ? contentEncoded
-        : descripcion || contentEncoded;
+  // Función auxiliar para verificar si una URL debe ser excluida
+  const shouldExcludeUrl = (url) => {
+    if (!config.excludePatterns || !Array.isArray(config.excludePatterns)) return false;
+    return config.excludePatterns.some(pattern => url.includes(pattern));
+  };
 
-    return {
-      title: pickText(item?.title),
-      link: pickLink(item),
-      pubDate: item?.pubDate || item?.published || item?.updated || '',
-      description,
-      image_url: pickImage(item),
-      source_name: sourceName,
-      source_domain: sourceDomain,
-      source_id: sourceDomain,
-      content_encoded: contentEncoded,
-    };
-  });
+  const results = itemArray
+    .filter(item => {
+      const link = pickLink(item);
+      return !shouldExcludeUrl(link);
+    })
+    .slice(0, 20)
+    .map((item) => {
+      const descripcion = pickText(item?.description) || pickText(item?.summary) || '';
+      const contentEncoded = pickText(item?.['content:encoded']) || '';
+      // Punto 2.1: si el feed trae contenido completo (content:encoded con mas de ~500
+      // caracteres limpios), se usa directamente y no hace falta scrapeo.
+      const description =
+        contentEncoded && normalizeText(contentEncoded).length > 500
+          ? contentEncoded
+          : descripcion || contentEncoded;
+
+      return {
+        title: pickText(item?.title),
+        link: pickLink(item),
+        pubDate: item?.pubDate || item?.published || item?.updated || '',
+        description,
+        image_url: pickImage(item),
+        source_name: sourceName,
+        source_domain: sourceDomain,
+        source_id: sourceDomain,
+        content_encoded: contentEncoded,
+      };
+    });
 
   return { results, message: '', statusCode: response.statusCode };
 };

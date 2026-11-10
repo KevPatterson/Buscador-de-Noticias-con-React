@@ -231,7 +231,9 @@ export default async function handler(req, res) {
   const todos = (
     await Promise.all(
       fuentesObjetivo.map((fuenteRSS) =>
-        fetchFeed(fuenteRSS.feed).then((d) => d.results || []).catch(() => [])
+        fetchFeed(fuenteRSS.feed, {
+          excludePatterns: fuenteRSS.excludePatterns || [],
+        }).then((d) => d.results || []).catch(() => [])
       )
     )
   ).flat();
