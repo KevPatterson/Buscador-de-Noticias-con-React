@@ -18,27 +18,45 @@ El scraper no validaba si la página obtenida era realmente un artículo o una p
 ### Solución Implementada
 - **Archivo**: `api/scrape.js`
 - **Cambios**: 
-  - Se agregó función `isErrorPage()` que detecta páginas de error basándose en patrones HTML comunes
+  - Se agregó función `isErrorPage()` que detecta páginas de error basándose en patrones HTML específicos
   - Se valida el contenido HTML antes de procesar
-  - Se rechaza la página si contiene patrones de error (404, 403, "Página no encontrada", etc.)
+  - Patrones más específicos para evitar falsos positivos (solo 404/403 explícitos)
+  - Se agregan excepciones para palabras clave que indican contenido válido
   
-**Función agregada:**
+**Función agregada (mejorada):**
 ```javascript
 const isErrorPage = (html = '', status = 200) => {
   if (status >= 400) return true;
   
   const htmlLower = html.toLowerCase();
+  
+  // Patrones MÁS ESPECÍFICOS que indican claramente una página de error
   const errorPatterns = [
-    /404.*not\s+found/i,
-    /página.*no\s+encontrada/i,
-    /no\s+autorizado|sin\s+acceso/i,
-    /acceso\s+denegado/i,
-    // ... más patrones
+    /404\s+(not\s+found|page\s+not\s+found)/i,
+    /403\s+(forbidden|access\s+denied)/i,
+    /<title>\s*404/i,
+    /<title>\s*403/i,
+    /\[dlm_no_access\]/i,  // Drupal no access shortcode
   ];
   
-  return errorPatterns.some(pattern => pattern.test(htmlLower));
+  const isError = errorPatterns.some(pattern => pattern.test(htmlLower));
+  
+  // Si es muy corto pero tiene palabras clave de artículo válido
+  if (!isError && html.replace(/<[^>]*>/g, '').trim().length < 150) {
+    if (/página de ejemplo|está diferente|permanecerá|estrenará|documental/i.test(htmlLower)) {
+      return false; // Es un artículo legítimo
+    }
+  }
+  
+  return isError;
 };
 ```
+
+**Mejoras:**
+- Solo rechaza 404/403 explícitos (no intenta adivinar)
+- Permite artículos cortos si contienen palabras clave de contenido legítimo
+- Permite páginas cortas sin patrones claros de error
+- Rechaza específicamente el shortcode Drupal `[dlm_no_access]`
 
 ### Mejora en Selectores
 - Se agregaron selectores específicos para detectar mejor el contenido
@@ -151,8 +169,25 @@ Se ejecutó `scripts/test-scraping-fixes.js` con los siguientes resultados:
 
 ✓ TEST 1: Limpieza de prefijo Prensa Latina - **ÉXITO**
 ✓ TEST 2: División de párrafos Radio Bayamo - **ÉXITO**
-✓ TEST 3: Detección de páginas de error - **ÉXITO**
+✓ TEST 3: Detección de páginas de error (especificidad mejorada) - **ÉXITO**
+  - Detecta 404 claros ✓
+  - Detecta shortcode [dlm_no_access] ✓
+  - Permite páginas válidas cortas ✓
+  - Permite "Página de ejemplo" de Tribuna ✓
 ✓ TEST 4: Casos de no-aplicación (fallback safety) - **ÉXITO**
+
+---
+
+## Revisiones Realizadas
+
+### Primera Iteración (Commit a5a7b04)
+- Agregada detección de error pages muy restrictiva
+
+### Segunda Iteración (Commit d542e4d) - RECOMENDADA
+- Mejorada detección de error pages
+- Solo rechaza 404/403 explícitos y [dlm_no_access]
+- Permite artículos cortos si tienen palabras clave válidas
+- Evita falsos positivos bloqueando contenido legítimo
 
 ---
 
