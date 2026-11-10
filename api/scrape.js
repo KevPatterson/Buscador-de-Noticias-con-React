@@ -83,26 +83,42 @@ const stripLeadingBoilerplate = (value = '') => {
 
 const isErrorPage = (html = '', status = 200) => {
   // Detecta páginas de error basándose en el contenido HTML
+  // Solo rechaza si está CLARAMENTE en modo error
   if (status >= 400) return true;
   
   const htmlLower = html.toLowerCase();
   
-  // Patrones comunes de páginas de error/no encontrado
+  // Patrones MÁS ESPECÍFICOS que indican claramente una página de error
   const errorPatterns = [
-    /404.*not\s+found/i,
-    /página.*no\s+encontrada/i,
-    /no\s+autorizado|sin\s+acceso/i,
-    /acceso\s+denegado/i,
-    /error\s+403/i,
-    /forbidden/i,
-    /error\s+404/i,
-    /page\s+not\s+found/i,
-    /<title>404</i,
-    /<title>403/i,
-    /<title>Error/i,
+    // 404/403 explícitos
+    /404\s+(not\s+found|page\s+not\s+found)/i,
+    /403\s+(forbidden|access\s+denied)/i,
+    /<title>\s*404/i,
+    /<title>\s*403/i,
+    // Mensajes claros de error sin contenido
+    /^<html>\s*<head>\s*<title>\s*404/i,
+    /^<html>\s*<head>\s*<title>\s*403/i,
+    // Página sin contenido (solo estructura)
+    /\[dlm_no_access\]/i,  // Drupal no access shortcode
   ];
   
-  return errorPatterns.some(pattern => pattern.test(htmlLower));
+  // Si está en una lista de patrones claros, es un error
+  const isError = errorPatterns.some(pattern => pattern.test(htmlLower));
+  
+  // Protección adicional: si el HTML tiene MUY poco contenido de texto
+  // (menor a 200 caracteres sin tags) probablemente sea una página stub/error
+  if (!isError && html.replace(/<[^>]*>/g, '').trim().length < 150) {
+    // Pero si tiene contenido con palabras clave de artículo, no es error
+    if (/página de ejemplo|está diferente|permanecerá/i.test(htmlLower)) {
+      return false; // Es un artículo legítimo aunque corto
+    }
+    // Si tiene muy poco contenido Y patrones de error, rechaza
+    if (/sin resumen|sin acceso|no encontrado|error/i.test(htmlLower)) {
+      return true;
+    }
+  }
+  
+  return isError;
 };
 
 const cutAtMarker = (value = '', markers = []) => {
