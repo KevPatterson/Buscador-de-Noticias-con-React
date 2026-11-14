@@ -1,6 +1,13 @@
 import { fetchFeed } from './rss.js';
 import { FUENTES_RSS } from '../src/config/fuentes-rss.js';
 import { configurarCors } from '../src/lib/cors.js';
+import { conTimeout } from '../src/lib/timeout.js';
+import { dedupeNoticias } from '../src/lib/dedupe.js';
+
+// Tiempo maximo de espera por API externa. Si una rama se pasa, se registra
+// y la cascada continua con la siguiente fuente en vez de colgar la request.
+const TIEMPO_ESPERA_API_MS = 5000;
+
 
 const NEWSDATA_BASE = 'https://newsdata.io/api/1/news';
 const THENEWSAPI_BASE = 'https://api.thenewsapi.com/v1/news/all';
@@ -180,9 +187,16 @@ const obtenerNewsAPI = async ({ query, categoria, pagina, domainurl }) => {
   };
 };
 
-const responder = (res, payload) => {
+// Deduplica en el servidor para que la paginacion sea coherente con lo que ve
+// el cliente. El dedupe del cliente se mantiene como red de seguridad.
+const responder = (res, payload, meta) => {
   res.setHeader('Cache-Control', 's-maxage=60');
-  return res.status(200).json({ status: 'ok', ...payload });
+  return res.status(200).json({
+    status: 'ok',
+    ...payload,
+    resultados: dedupeNoticias(payload.resultados || []),
+    ...(meta ? { _meta: meta } : {}),
+  });
 };
 
 export default async function handler(req, res) {
@@ -194,32 +208,61 @@ export default async function handler(req, res) {
   const fuente = asSingle(req.query.fuente);
   const pagina = asSingle(req.query.pagina);
 
+  const inicio = Date.now();
+  // Telemetria ligera por rama; se publica en _meta para medir el baseline
+  // (cuotas agotadas, timeouts) sin exponer claves ni detalles internos.
+  const intentos = {};
+
+  // Ejecuta una rama con tiempo limite. Cualquier fallo (cuota, timeout, red)
+  // se registra y permite continuar con la siguiente fuente en lugar de
+  // romper la cascada con un 500.
+  const ejecutarRama = async (nombre, obtener) => {
+    const comienzo = Date.now();
+    try {
+      const datos = await conTimeout(obtener(), TIEMPO_ESPERA_API_MS, nombre.toUpperCase());
+      intentos[nombre] = { ok: true, ms: Date.now() - comienzo };
+      return datos;
+    } catch (error) {
+      intentos[nombre] = { ok: false, ms: Date.now() - comienzo, error: error.message };
+      console.warn(`[news] rama ${nombre} fallida: ${error.message}`);
+      return null;
+    }
+  };
+
+  const enviar = (resultados, nombreFuente, nextPage, totalResults) => {
+    const meta = { intentos, latenciaMs: Date.now() - inicio };
+    if (meta.latenciaMs > 5000) {
+      console.warn(`[news] respuesta lenta (${meta.latenciaMs} ms)`);
+    }
+    return responder(res, { resultados, fuente: nombreFuente, nextPage, totalResults }, meta);
+  };
+
   // Fallback entre APIs. Las claves leen de variables de entorno del servidor
   // (sin prefijo VITE_), nunca del bundle del navegador.
   if (process.env.NEWSDATA_API_KEY) {
-    try {
-      const data = await obtenerNewsData({ query, categoria, pagina, domainurl: fuente });
-      return responder(res, { resultados: data.resultados, fuente: 'newsdata', nextPage: data.nextPage, totalResults: data.totalResults });
-    } catch (error) {
-      if (error.message !== 'QUOTA_EXCEEDED') throw error;
+    const datos = await ejecutarRama('newsdata', () =>
+      obtenerNewsData({ query, categoria, pagina, domainurl: fuente })
+    );
+    if (datos) {
+      return enviar(datos.resultados, 'newsdata', datos.nextPage, datos.totalResults);
     }
   }
 
   if (process.env.THENEWSAPI_KEY) {
-    try {
-      const data = await obtenerTheNewsAPI({ query, categoria, pagina, domainurl: fuente });
-      return responder(res, { resultados: data.resultados, fuente: 'thenewsapi', nextPage: data.nextPage, totalResults: data.totalResults });
-    } catch (error) {
-      if (error.message !== 'QUOTA_EXCEEDED') throw error;
+    const datos = await ejecutarRama('thenewsapi', () =>
+      obtenerTheNewsAPI({ query, categoria, pagina, domainurl: fuente })
+    );
+    if (datos) {
+      return enviar(datos.resultados, 'thenewsapi', datos.nextPage, datos.totalResults);
     }
   }
 
   if (process.env.NEWSAPI_KEY) {
-    try {
-      const data = await obtenerNewsAPI({ query, categoria, pagina, domainurl: fuente });
-      return responder(res, { resultados: data.resultados, fuente: 'newsapi', nextPage: data.nextPage, totalResults: data.totalResults });
-    } catch (error) {
-      if (error.message !== 'QUOTA_EXCEEDED') throw error;
+    const datos = await ejecutarRama('newsapi', () =>
+      obtenerNewsAPI({ query, categoria, pagina, domainurl: fuente })
+    );
+    if (datos) {
+      return enviar(datos.resultados, 'newsapi', datos.nextPage, datos.totalResults);
     }
   }
 
@@ -242,6 +285,7 @@ export default async function handler(req, res) {
     fuentesObjetivo = FUENTES_RSS;
   }
 
+  const inicioRss = Date.now();
   const todos = (
     await Promise.all(
       fuentesObjetivo.map((fuenteRSS) =>
@@ -249,6 +293,7 @@ export default async function handler(req, res) {
       )
     )
   ).flat();
+  intentos.rss = { ok: true, ms: Date.now() - inicioRss };
 
   let resultados = todos;
   if (query) {
@@ -258,5 +303,5 @@ export default async function handler(req, res) {
     );
   }
 
-  return responder(res, { resultados, fuente: 'rss', nextPage: null, totalResults: resultados.length });
+  return enviar(resultados, 'rss', null, resultados.length);
 }

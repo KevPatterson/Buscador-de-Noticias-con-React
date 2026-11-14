@@ -10,6 +10,10 @@ const parser = new XMLParser({
   removeNSPrefix: false,
 });
 
+// Tiempo de espera por feed: un medio lento o colgado no debe bloquear toda
+// la rama RSS ni acercarse al limite de la serverless function.
+const TIEMPO_ESPERA_FEED_MS = 6000;
+
 const asArray = (value) => {
   if (!value) return [];
   return Array.isArray(value) ? value : [value];
@@ -56,26 +60,56 @@ const pickImage = (item) => {
   return null;
 };
 
+// Cache en memoria por feed: la rama RSS de /api/news consulta todos los feeds
+// en cada request, lo que multiplica latencia y peticiones salientes. TTL corto
+// porque las noticias son frescas; en Vercel la memoria es por instancia, asi
+// que el cache amortiza las requests repetidas dentro de la misma instancia.
+const CACHE_FEED_TTL_MS = 90 * 1000;
+const cacheFeeds = new Map();
+
+const leerCacheFeed = (feedUrl) => {
+  const entrada = cacheFeeds.get(feedUrl);
+  if (!entrada) return null;
+  if (Date.now() - entrada.ts > CACHE_FEED_TTL_MS) {
+    cacheFeeds.delete(feedUrl);
+    return null;
+  }
+  // Copia superficial del arreglo para que el llamador no mutue la cache.
+  return { ...entrada.payload, results: [...entrada.payload.results] };
+};
+
+const guardarCacheFeed = (feedUrl, payload) => {
+  if (cacheFeeds.size > 100) cacheFeeds.clear();
+  cacheFeeds.set(feedUrl, { ts: Date.now(), payload });
+};
+
 // Descarga y parsea un feed RSS aplicando los controles de SSRF.
 // Usado tanto por el handler /api/rss como por el fallback de /api/news.
 export const fetchFeed = async (feedUrl, config = {}) => {
   // validateUrl lanza SecureFetchError (400/403/502) para URLs invalidas o no permitidas.
   validateUrl(feedUrl);
 
+  const enCache = leerCacheFeed(feedUrl);
+  if (enCache) return enCache;
+
   let response;
   try {
-    response = await secureFetch(feedUrl);
+    response = await secureFetch(feedUrl, { tiempoEsperaMs: TIEMPO_ESPERA_FEED_MS });
   } catch (error) {
     if (error instanceof SecureFetchError && (error.statusCode === 400 || error.statusCode === 403)) {
       throw error;
     }
-    return { results: [], message: 'Feed no disponible', statusCode: 200 };
+    const sinServicio = { results: [], message: 'Feed no disponible', statusCode: 200 };
+    guardarCacheFeed(feedUrl, sinServicio);
+    return sinServicio;
   }
 
   const parsed = parser.parse(response.body);
   const channel = parsed?.rss?.channel || parsed?.feed;
   if (!channel) {
-    return { results: [], message: 'Formato RSS no reconocido', statusCode: 200 };
+    const noReconocido = { results: [], message: 'Formato RSS no reconocido', statusCode: 200 };
+    guardarCacheFeed(feedUrl, noReconocido);
+    return noReconocido;
   }
 
   const items = channel?.item || channel?.entry || [];
@@ -137,7 +171,9 @@ export const fetchFeed = async (feedUrl, config = {}) => {
       };
     });
 
-  return { results, message: '', statusCode: response.statusCode };
+  const resultado = { results, message: '', statusCode: response.statusCode };
+  guardarCacheFeed(feedUrl, resultado);
+  return resultado;
 };
 
 export default async function handler(req, res) {
