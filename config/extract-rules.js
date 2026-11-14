@@ -23,6 +23,22 @@ export const DOMAIN_RULES = {
     selectorsToRemove: ['header', 'footer'],
     contentSelectors: ['article', '.post-content', '.entry-content'],
   },
+  'tribuna.cu': {
+    selectorsToRemove: [
+      'header',
+      'footer',
+      'nav',
+      '.navbar',
+      '.sidebar',
+      '.widget-section',
+      '.ads',
+      '.advertisement',
+      '.social-share',
+      '.newsletter',
+      '.comentarios',
+    ],
+    contentSelectors: ['article', '.post-content', '.article-content', '.entry-content', '.post'],
+  },
   // Añadir reglas por dominio problemático aquí.
 };
 

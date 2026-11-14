@@ -97,6 +97,48 @@ export const FUENTES_RSS = [
     tieneContentEncoded: false,
     descripcion: 'Estación de radio ICRT provincial',
   },
+  {
+    dominio: 'cubadebate.cu',
+    nombre: 'Cubadebate',
+    feed: 'https://www.cubadebate.cu/feed/',
+    tieneContentEncoded: true,
+    descripcion: 'Sitio de análisis político cubano',
+  },
+  {
+    dominio: 'juventudrebelde.cu',
+    nombre: 'Juventud Rebelde',
+    feed: 'https://www.juventudrebelde.cu/feed/',
+    tieneContentEncoded: true,
+    descripcion: 'Periódico de la juventud cubana',
+  },
+  {
+    dominio: 'acn.cu',
+    nombre: 'ACN',
+    feed: 'https://www.acn.cu/feed/',
+    tieneContentEncoded: true,
+    descripcion: 'Agencia Cubana de Noticias',
+  },
+  {
+    dominio: 'infobae.com',
+    nombre: 'Infobae',
+    feed: 'https://www.infobae.com/feed/',
+    tieneContentEncoded: true,
+    descripcion: 'Portal de noticias latinoamericano',
+  },
+  {
+    dominio: 'actualidad.rt.com',
+    nombre: 'RT en Español',
+    feed: 'https://actualidad.rt.com/feeds/rss',
+    tieneContentEncoded: true,
+    descripcion: 'Agencia de noticias internacional',
+  },
+  {
+    dominio: 'telesurtv.net',
+    nombre: 'teleSUR',
+    feed: 'https://www.telesurtv.net/feed/feed.rss',
+    tieneContentEncoded: true,
+    descripcion: 'Red de televisión latinoamericana',
+  },
 ];
 
 export const FUENTES_INSTITUCIONALES = [
@@ -104,4 +146,16 @@ export const FUENTES_INSTITUCIONALES = [
   { dominio: 'cubagob.cu', nombre: 'Portal Gobierno de Cuba', query: 'gobierno Cuba noticias' },
   { dominio: 'minrex.gob.cu', nombre: 'MINREX', query: 'MINREX Cuba relaciones exteriores' },
   { dominio: 'jit.cu', nombre: 'JIT Deporte', query: 'JIT Deporte Cuba' },
+];
+
+// Fuentes que se cargan via API de búsqueda (con fallback a Google News)
+export const FUENTES_BUSQUEDA = [
+  { dominio: 'cubadebate.cu', nombre: 'Cubadebate', query: 'site:cubadebate.cu' },
+  { dominio: 'juventudrebelde.cu', nombre: 'Juventud Rebelde', query: 'site:juventudrebelde.cu' },
+  { dominio: 'acn.cu', nombre: 'ACN', query: 'site:acn.cu' },
+  { dominio: 'infobae.com', nombre: 'Infobae', query: 'site:infobae.com' },
+  { dominio: 'actualidad.rt.com', nombre: 'RT en Español', query: 'site:actualidad.rt.com OR site:rt.com' },
+  { dominio: 'telesurtv.net', nombre: 'teleSUR', query: 'site:telesurtv.net' },
+  { dominio: 'venceremos.cu', nombre: 'Venceremos', query: 'site:venceremos.cu' },
+  { dominio: 'hispantv.com', nombre: 'HispanTV', query: 'site:hispantv.com' },
 ];

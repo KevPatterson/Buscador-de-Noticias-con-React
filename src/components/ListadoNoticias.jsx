@@ -110,7 +110,17 @@ const ListadoNoticias = ({
 
     return (
         <>
-            <Box sx={{ display: 'flex', justifyContent: 'flex-end', mb: 1 }}>
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                    {loading && noticias.length === 0 && (
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                            <CircularProgress size={20} />
+                            <Typography variant="body2" color="text.secondary">
+                                Cargando noticias...
+                            </Typography>
+                        </Box>
+                    )}
+                </Box>
                 <Tooltip title={chipInfo.tooltip} disableHoverListener={!chipInfo.tooltip}>
                     <Chip label={chipInfo.label} color={chipInfo.color} size="small" />
                 </Tooltip>

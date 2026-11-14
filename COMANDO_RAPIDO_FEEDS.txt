@@ -1,0 +1,287 @@
+╔════════════════════════════════════════════════════════════════════════════════╗
+║                          COMANDO RÁPIDO - FEEDS RSS                            ║
+║                    Resumen de URLs alternativas encontradas                     ║
+╚════════════════════════════════════════════════════════════════════════════════╝
+
+
+📋 TABLA DE REFERENCIA RÁPIDA
+═════════════════════════════════════════════════════════════════════════════════
+
+SITIO                  | ESTADO  | URL ALTERNATIVA
+───────────────────────┼─────────┼────────────────────────────────────────────
+Infobae                | ✅ OK   | https://www.infobae.com/arc/outboundfeeds/rss/
+Juventud Rebelde       | ✓ TEST  | https://www.juventudrebelde.cu/rss/noticias
+RT (Actualidad)        | ⚠️ GEO  | https://actualidad.rt.com/feeds/all.rss
+Cubadebate             | 🤖 BOT  | http://www.cubadebate.cu/feed/ + User-Agent
+teleSUR                | 🤖 BOT  | https://www.telesurenglish.net/feed/
+ACN                    | ❌ N/A  | https://news.google.com/rss/search?q=site:acn.cu
+
+
+🚀 IMPLEMENTACIÓN RÁPIDA
+═════════════════════════════════════════════════════════════════════════════════
+
+1. ACTUALIZAR INFOBAE (Inmediato - Máxima Prioridad)
+
+   Archivo: src/config/fuentes-rss.js
+   
+   CAMBIAR:
+     feed: 'https://www.infobae.com/feed/',
+   
+   POR:
+     feed: 'https://www.infobae.com/arc/outboundfeeds/rss/',
+
+
+2. PROBAR JUVENTUD REBELDE (Corto Plazo)
+
+   Archivo: src/config/fuentes-rss.js
+   
+   AÑADIR:
+   {
+     dominio: 'juventudrebelde.cu',
+     nombre: 'Juventud Rebelde',
+     feed: 'https://www.juventudrebelde.cu/rss/noticias',
+     tieneContentEncoded: false,
+   }
+
+
+3. CONFIGURAR RT CON FALLBACK (Corto Plazo)
+
+   Archivo: src/config/fuentes-rss.js
+   
+   {
+     dominio: 'rt.com',
+     nombre: 'RT',
+     feed: 'https://actualidad.rt.com/feeds/all.rss',
+     fallback: 'https://rt-english.com/rss/news/',
+     headers: {
+       'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+     }
+   }
+
+
+4. DESBLOQUEAR CUBADEBATE Y TELESUR (Mediano Plazo)
+
+   Agregar headers de navegador:
+   
+   headers: {
+     'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+     'Accept': 'application/rss+xml, application/atom+xml'
+   }
+   
+   Implementar reintentos con backoff exponencial
+
+
+5. USAR GOOGLE NEWS COMO FALLBACK UNIVERSAL
+
+   Patrón:
+   https://news.google.com/rss/search?q=site:[dominio]&hl=[idioma]&gl=[pais]
+   
+   Ejemplos:
+   - Cubadebate: https://news.google.com/rss/search?q=site:cubadebate.cu&hl=es-419&gl=CU
+   - ACN: https://news.google.com/rss/search?q=site:acn.cu&hl=es-419&gl=CU
+   - teleSUR: https://news.google.com/rss/search?q=telesur&hl=es
+
+
+⚡ COMANDOS DE PRUEBA
+═════════════════════════════════════════════════════════════════════════════════
+
+Validar Infobae:
+  curl -I https://www.infobae.com/arc/outboundfeeds/rss/
+  → Debe devolver: HTTP/2 200 OK
+
+Validar Juventud Rebelde:
+  curl -I https://www.juventudrebelde.cu/rss/noticias
+  → Debe devolver: HTTP/2 200 OK
+
+Validar RT:
+  curl -I https://actualidad.rt.com/feeds/all.rss
+  → Si no resuelve: Geo-bloqueado. Intenta: https://rt-english.com/rss/news/
+
+Validar Cubadebate (con User-Agent):
+  curl -H "User-Agent: Mozilla/5.0" -I http://www.cubadebate.cu/feed/
+  → Debe devolver: HTTP/1.1 200 OK (no 403)
+
+Validar teleSUR:
+  curl -H "User-Agent: Mozilla/5.0" -I https://www.telesurenglish.net/feed/
+  → Intenta con dominio en inglés
+
+
+📊 ESTADO ACTUAL
+═════════════════════════════════════════════════════════════════════════════════
+
+CONFIRMADOS Y FUNCIONANDO:
+  ✅ Infobae
+     Feed: https://www.infobae.com/arc/outboundfeeds/rss/
+     Validación: HTTP 200 OK - RSS 2.0 válido
+     Contenido: Actualizado regularmente
+     Acción: IMPLEMENTAR YA
+
+PROBABLES (Requieren validación):
+  ✓ Juventud Rebelde
+    Feed: https://www.juventudrebelde.cu/rss/noticias
+    Validación: Encontrada en sitio - Requiere prueba
+    Acción: PROBAR EN DESARROLLO
+
+  ✓ RT - Actualidad
+    Feed: https://actualidad.rt.com/feeds/all.rss
+    Validación: Reportada en Feeder.co - Requiere prueba
+    Problema: Posible geo-bloqueo
+    Acción: PROBAR - CONSIDERAR VPN O FALLBACK
+
+BLOQUEADOS POR ANTI-BOTS (Requieren estrategia especial):
+  🤖 Cubadebate
+     Feed: http://www.cubadebate.cu/feed/
+     Problema: ECONNRESET - Anti-bots activo
+     Estrategia: User-Agent real + Backoff exponencial
+     Fallback: Google News
+     Acción: IMPLEMENTAR ESTRATEGIA
+
+  🤖 teleSUR
+     Feed: https://www.telesurtv.net/feed/
+     Problema: ECONNRESET - Anti-bots activo
+     Alternativa: https://www.telesurenglish.net/feed/
+     Fallback: Google News
+     Acción: IMPLEMENTAR ESTRATEGIA
+
+NO DISPONIBLES (Usar Agregador):
+  ❌ ACN
+     Feed: No existe (/feed/ devuelve 404)
+     Alternativas: Varias URL a probar
+     Fallback: Google News agregador
+     Acción: CONTACTAR O USAR GOOGLE NEWS
+
+
+📁 ARCHIVOS GENERADOS
+═════════════════════════════════════════════════════════════════════════════════
+
+📄 BUSQUEDA_FEEDS_RSS_ALTERNATIVAS.md
+   └─ Informe detallado de 50 KB con análisis completo
+
+📄 feeds-rss-alternativas.json
+   └─ Datos estructurados en JSON - Fácil de parsear
+
+📄 scripts/test-feeds-alternativas.js
+   └─ Script de validación automática
+
+📄 docs/GUIA_IMPLEMENTACION_FEEDS_ALTERNATIVOS.md
+   └─ Guía paso a paso de implementación
+
+📄 RESUMEN_FEEDS_ALTERNATIVAS.txt
+   └─ Resumen ejecutivo
+
+📄 COMANDO_RAPIDO_FEEDS.txt
+   └─ Este archivo - referencia rápida
+
+
+🔗 PATRONES ÚTILES
+═════════════════════════════════════════════════════════════════════════════════
+
+Cubadebate - Por categoría:
+  http://www.cubadebate.cu/[categoría]/feed/
+  Ejemplos:
+  - http://www.cubadebate.cu/libros-libres/feed/
+  - http://www.cubadebate.cu/noticias/feed/
+  - http://www.cubadebate.cu/sociedad/feed/
+
+Juventud Rebelde - Por sección:
+  https://www.juventudrebelde.cu/rss/[sección]
+  Ejemplos:
+  - https://www.juventudrebelde.cu/rss/noticias
+  - https://www.juventudrebelde.cu/rss/columnas
+  - https://www.juventudrebelde.cu/rss/suplementos
+
+Google News - Agregador universal:
+  https://news.google.com/rss/search?q=site:[dominio]&hl=[idioma]&gl=[pais]
+  Ejemplo:
+  - https://news.google.com/rss/search?q=site:cubadebate.cu&hl=es-419&gl=CU
+
+
+🎯 PRÓXIMAS ACCIONES
+═════════════════════════════════════════════════════════════════════════════════
+
+HOY (Máxima Prioridad):
+  □ Actualizar Infobae en src/config/fuentes-rss.js
+  □ Verificar que funciona
+  □ Hacer commit: feat(rss): actualizar feed Infobae
+
+HOY+1 (Alta Prioridad):
+  □ Probar Juventud Rebelde
+  □ Si funciona: agregar a configuración
+  □ Si no funciona: intentar otras variaciones
+
+HOY+2 (Alta Prioridad):
+  □ Probar RT
+  □ Si funciona: agregar con fallback
+  □ Si no funciona: investigar geo-bloqueo
+
+HOY+3 (Mediana Prioridad):
+  □ Implementar estrategia anti-bots para Cubadebate
+  □ Implementar estrategia anti-bots para teleSUR
+  □ Usar Google News como fallback
+
+HOY+7 (Baja Prioridad):
+  □ Contactar a ACN para solicitar feed RSS
+  □ Configurar monitoreo de feeds
+  □ Documentar cualquier cambio futuro
+
+
+💡 TIPS IMPORTANTES
+═════════════════════════════════════════════════════════════════════════════════
+
+1. URLS CON GEOÍP:
+   Si un feed no resuelve, podría ser geo-bloqueado
+   → Prueba con VPN desde otro país
+   → O usa fallback a Google News
+
+2. BLOQUEOS ANTI-BOTS:
+   Si ves ECONNRESET, el servidor rechaza automatización
+   → Cambia User-Agent
+   → Agrega headers de navegador
+   → Implementa backoff exponencial
+
+3. FEEDS 404:
+   Si devuelve 404, la URL no existe
+   → Prueba variaciones
+   → Contacta al administrador
+   → Usa agregador como fallback
+
+4. VALIDACIÓN RÁPIDA:
+   Abre la URL en el navegador
+   Si ves un feed RSS, el servidor la permite
+   Si no funciona con curl, es anti-bots
+
+5. FALLBACKS:
+   Siempre ten un plan B
+   Google News funciona como agregador universal
+   Nunca dejes un feed sin alternativa
+
+
+📞 REFERENCIA DE CONTACTO
+═════════════════════════════════════════════════════════════════════════════════
+
+Si necesitas investigar más:
+
+Infobae: https://www.infobae.com (feed ya encontrado)
+Juventud Rebelde: https://www.juventudrebelde.cu/rss (página de info)
+RT: https://rt.com (sitio principal)
+Cubadebate: http://www.cubadebate.cu/web2/ (menciona RSS)
+teleSUR: https://www.telesurtv.net (sitio principal)
+ACN: https://www.acn.cu (para contacto)
+
+
+═════════════════════════════════════════════════════════════════════════════════
+                             REFERENCIA RÁPIDA
+═════════════════════════════════════════════════════════════════════════════════
+
+Infobae:         https://www.infobae.com/arc/outboundfeeds/rss/
+Juventud R.:     https://www.juventudrebelde.cu/rss/noticias
+RT:              https://actualidad.rt.com/feeds/all.rss (+ fallback)
+Cubadebate:      http://www.cubadebate.cu/feed/ (+ User-Agent)
+teleSUR:         https://www.telesurenglish.net/feed/
+ACN:             https://news.google.com/rss/search?q=site:acn.cu&hl=es-419&gl=CU
+
+═════════════════════════════════════════════════════════════════════════════════
+
+Última actualización: 2026-11-14
+Próxima revisión: 2026-12-14
+

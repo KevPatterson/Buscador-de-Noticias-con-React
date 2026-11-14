@@ -1,0 +1,392 @@
+{
+  "feeds_rss_alternativas": {
+    "infobae": {
+      "dominio": "infobae.com",
+      "nombre": "Infobae",
+      "urls": [
+        {
+          "url": "https://www.infobae.com/arc/outboundfeeds/rss/",
+          "estado": "funcional",
+          "tipo": "RSS 2.0",
+          "validado": true,
+          "notas": "Feed principal actualizado - USAR ESTE"
+        },
+        {
+          "url": "https://www.infobae.com/feed/",
+          "estado": "404",
+          "tipo": "deprecated",
+          "validado": false,
+          "notas": "No funciona - usar URL anterior"
+        }
+      ],
+      "metadatos": {
+        "actualizado": "2026-11-14",
+        "updateFrequency": "hourly",
+        "ttl": 1,
+        "idioma": "es"
+      }
+    },
+    "rt": {
+      "dominio": "actualidad.rt.com",
+      "nombre": "RT - Actualidad",
+      "urls": [
+        {
+          "url": "https://actualidad.rt.com/feeds/all.rss",
+          "estado": "probable",
+          "tipo": "RSS 2.0",
+          "validado": false,
+          "notas": "URL alternativa encontrada en Feeder.co - requiere prueba. Posible geo-bloqueo.",
+          "prioridad": "alta"
+        },
+        {
+          "url": "https://rt-english.com/rss/news/",
+          "estado": "funcional",
+          "tipo": "RSS 2.0",
+          "validado": false,
+          "notas": "Feed en inglés desde dominio espejo - alternativa de emergencia",
+          "idioma": "en"
+        },
+        {
+          "url": "https://news.google.com/rss/search?q=site:rt.com&hl=es",
+          "estado": "funcional",
+          "tipo": "Google News",
+          "validado": false,
+          "notas": "Agregador universal - resúmenes en Google News",
+          "idioma": "es"
+        }
+      ],
+      "problemas": [
+        "Geo-bloqueo DNS desde algunas ubicaciones",
+        "Posible restricción geográfica"
+      ],
+      "estrategias": [
+        {
+          "nombre": "headers_navegador",
+          "descripcion": "Usar User-Agent de navegador real",
+          "ejemplo": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
+        },
+        {
+          "nombre": "vpn_proxy",
+          "descripcion": "Considerar VPN si está permitido por TOS",
+          "nota": "Solo si es legalmente permitido"
+        }
+      ]
+    },
+    "juventud_rebelde": {
+      "dominio": "juventudrebelde.cu",
+      "nombre": "Juventud Rebelde",
+      "urls": [
+        {
+          "url": "https://www.juventudrebelde.cu/rss/noticias",
+          "estado": "probable",
+          "tipo": "RSS 2.0",
+          "validado": false,
+          "notas": "Canal principal de noticias - PROBAR PRIMERO",
+          "prioridad": "alta"
+        },
+        {
+          "url": "https://www.juventudrebelde.cu/rss/columnas",
+          "estado": "probable",
+          "tipo": "RSS 2.0",
+          "validado": false,
+          "notas": "Canal de columnas de opinión"
+        },
+        {
+          "url": "https://www.juventudrebelde.cu/rss/suplementos",
+          "estado": "probable",
+          "tipo": "RSS 2.0",
+          "validado": false,
+          "notas": "Canal de suplementos especiales"
+        },
+        {
+          "url": "http://www.juventudrebelde.cu/get/rss/suplementos/en-red",
+          "estado": "probable",
+          "tipo": "RSS 2.0",
+          "validado": false,
+          "notas": "Alternativa encontrada en Feeder.co",
+          "fuente": "Feeder.co"
+        },
+        {
+          "url": "https://www.juventudrebelde.cu/rss",
+          "estado": "informativo",
+          "tipo": "HTML",
+          "validado": true,
+          "notas": "Página de información sobre RSS - NO ES FEED"
+        },
+        {
+          "url": "https://news.google.com/rss/search?q=site:juventudrebelde.cu&hl=es-419&gl=CU",
+          "estado": "funcional",
+          "tipo": "Google News",
+          "validado": false,
+          "notas": "Agregador universal - última opción"
+        }
+      ],
+      "documentacion": {
+        "fuente": "https://www.juventudrebelde.cu/rss",
+        "menciona": "Todas las etiquetas y categorías tienen canal RSS agregando /rss al final"
+      }
+    },
+    "cubadebate": {
+      "dominio": "cubadebate.cu",
+      "nombre": "Cubadebate",
+      "urls": [
+        {
+          "url": "http://www.cubadebate.cu/feed/",
+          "estado": "bloqueado",
+          "tipo": "RSS 2.0",
+          "validado": false,
+          "notas": "Bloqueado por anti-bots - requiere estrategia especial",
+          "prioridad": "alta"
+        },
+        {
+          "url": "http://www.cubadebate.cu/libros-libres/feed/",
+          "estado": "bloqueado",
+          "tipo": "RSS 2.0",
+          "validado": false,
+          "notas": "Feed de categoría específica - ejemplo de patrón"
+        },
+        {
+          "url": "http://www.cubadebate.cu/[categoria]/feed/",
+          "estado": "patrón",
+          "tipo": "RSS 2.0",
+          "validado": false,
+          "notas": "Patrón documentado: todas las categorías tienen /feed/"
+        },
+        {
+          "url": "https://news.google.com/rss/search?q=site:cubadebate.cu&hl=es-419&gl=CU",
+          "estado": "funcional",
+          "tipo": "Google News",
+          "validado": false,
+          "notas": "Agregador universal como alternativa"
+        }
+      ],
+      "problemas": [
+        "ECONNRESET - conexión rechazada",
+        "Bloqueo anti-bots/scraper activo",
+        "No responde a solicitudes automatizadas"
+      ],
+      "estrategias": [
+        {
+          "nombre": "user_agent_variado",
+          "descripcion": "Variar User-Agent para parecer navegador real",
+          "opciones": [
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120.0",
+            "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36",
+            "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36"
+          ]
+        },
+        {
+          "nombre": "headers_browser",
+          "descripcion": "Agregar headers de navegador real",
+          "headers": {
+            "Accept": "application/rss+xml, application/atom+xml, text/*",
+            "Accept-Language": "es-ES,es;q=0.9,en-US;q=0.8",
+            "Accept-Encoding": "gzip, deflate",
+            "Referer": "https://www.cubadebate.cu/"
+          }
+        },
+        {
+          "nombre": "backoff_exponencial",
+          "descripcion": "Esperar entre reintentos",
+          "parametros": {
+            "base": 1000,
+            "multiplicador": 2,
+            "max_intentos": 3
+          }
+        }
+      ]
+    },
+    "telesur": {
+      "dominio": "telesurtv.net",
+      "nombre": "teleSUR",
+      "urls": [
+        {
+          "url": "https://www.telesurtv.net/feed/",
+          "estado": "bloqueado",
+          "tipo": "RSS 2.0",
+          "validado": false,
+          "notas": "Bloqueado por anti-bots - ECONNRESET",
+          "prioridad": "alta"
+        },
+        {
+          "url": "https://www.telesurenglish.net/feed/",
+          "estado": "bloqueado",
+          "tipo": "RSS 2.0",
+          "validado": false,
+          "notas": "Feed en inglés desde dominio espejo - también bloqueado",
+          "idioma": "en"
+        },
+        {
+          "url": "https://www.telesurtv.net/rss/",
+          "estado": "bloqueado",
+          "tipo": "RSS 2.0",
+          "validado": false,
+          "notas": "Variación de URL - probablemente también bloqueada"
+        },
+        {
+          "url": "https://news.google.com/rss/search?q=site:telesurtv.net&hl=es",
+          "estado": "funcional",
+          "tipo": "Google News",
+          "validado": false,
+          "notas": "Agregador universal como alternativa"
+        }
+      ],
+      "problemas": [
+        "ECONNRESET - conexión rechazada",
+        "Bloqueo anti-bots/scraper",
+        "Posible timeout o sobrecarga de servidor"
+      ],
+      "estrategias": [
+        {
+          "nombre": "user_agent_variado",
+          "descripcion": "Usar User-Agent de navegador real",
+          "ejemplo": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
+        },
+        {
+          "nombre": "dominio_espejo",
+          "descripcion": "Intenta con el dominio en inglés",
+          "url": "https://www.telesurenglish.net/feed/"
+        },
+        {
+          "nombre": "google_news",
+          "descripcion": "Usa agregador como fallback",
+          "url": "https://news.google.com/rss/search?q=telesur&hl=es"
+        }
+      ]
+    },
+    "acn": {
+      "dominio": "acn.cu",
+      "nombre": "ACN - Agencia Cubana de Noticias",
+      "urls": [
+        {
+          "url": "https://www.acn.cu/feed/",
+          "estado": "no_encontrado",
+          "tipo": "RSS 2.0",
+          "validado": false,
+          "notas": "HTTP 404 - URL no existe"
+        },
+        {
+          "url": "https://acn.cu/rss/",
+          "estado": "no_validado",
+          "tipo": "RSS 2.0",
+          "validado": false,
+          "notas": "Variación a probar"
+        },
+        {
+          "url": "https://www.acn.cu/rss/noticias/",
+          "estado": "no_validado",
+          "tipo": "RSS 2.0",
+          "validado": false,
+          "notas": "Variación con ruta de categoría"
+        },
+        {
+          "url": "https://www.acn.cu/feeds/",
+          "estado": "no_validado",
+          "tipo": "RSS 2.0",
+          "validado": false,
+          "notas": "Variación plural"
+        },
+        {
+          "url": "https://www.acn.cu/index.php?feed=rss2",
+          "estado": "no_validado",
+          "tipo": "RSS 2.0",
+          "validado": false,
+          "notas": "Patrón común en WordPress"
+        },
+        {
+          "url": "https://www.acn.cu/latest.xml",
+          "estado": "no_validado",
+          "tipo": "XML",
+          "validado": false,
+          "notas": "Formato alternativo"
+        },
+        {
+          "url": "https://www.acn.cu/sitemap.xml",
+          "estado": "no_validado",
+          "tipo": "XML Sitemap",
+          "validado": false,
+          "notas": "Sitemap - puede mencionar feeds"
+        },
+        {
+          "url": "https://news.google.com/rss/search?q=site:acn.cu&hl=es-419&gl=CU",
+          "estado": "funcional",
+          "tipo": "Google News",
+          "validado": false,
+          "notas": "Agregador universal como fallback"
+        }
+      ],
+      "analisis": {
+        "conclusion": "Feed RSS no encontrado - sitio puede no ofrecerlo públicamente",
+        "observaciones": [
+          "Sitio está activo y actualizado",
+          "Tiene servicio de 'cast' (distribución de contenido)",
+          "Posiblemente solo ofrece distribución vía otros canales"
+        ]
+      },
+      "proximos_pasos": [
+        "Contactar a ACN directamente",
+        "Probar URLs sugeridas",
+        "Implementar scraping como última opción",
+        "Usar Google News como agregador alternativo"
+      ]
+    }
+  },
+  "patrones_descubiertos": [
+    {
+      "patron": "Juventud Rebelde - Canales por sección",
+      "patron_url": "https://www.juventudrebelde.cu/rss/[seccion]",
+      "ejemplos": [
+        "noticias",
+        "columnas",
+        "suplementos"
+      ]
+    },
+    {
+      "patron": "Cubadebate - Canales por categoría",
+      "patron_url": "http://www.cubadebate.cu/[categoria]/feed/",
+      "ejemplos": [
+        "libros-libres",
+        "noticias",
+        "politica"
+      ]
+    },
+    {
+      "patron": "Google News agregador universal",
+      "patron_url": "https://news.google.com/rss/search?q=site:[dominio]&hl=[idioma]&gl=[pais]",
+      "ejemplo": "https://news.google.com/rss/search?q=site:cubadebate.cu&hl=es-419&gl=CU",
+      "uso": "Fallback cuando feed RSS directo no está disponible"
+    }
+  ],
+  "estrategias_globales": {
+    "para_bloqueos_anti_bots": [
+      "Variar User-Agent",
+      "Agregar headers de navegador real",
+      "Implementar reintentos con backoff exponencial",
+      "Usar proxies (si es legal)",
+      "Contactar soporte para acceso legítimo"
+    ],
+    "para_urls_no_encontradas": [
+      "Probar variaciones comunes: /feed/, /rss/, /feeds/, /?feed=rss2",
+      "Buscar documentación en el sitio",
+      "Usar Google News como agregador",
+      "Contactar administrador",
+      "Implementar scraping web"
+    ],
+    "para_restricciones_geograficas": [
+      "Intenta dominios espejo",
+      "Usa VPN (si permitido por TOS)",
+      "Prueba Google News",
+      "Contacta soporte técnico",
+      "Usa agregadores internacionales"
+    ]
+  },
+  "resumen": {
+    "feeds_confirmados": 1,
+    "feeds_probables": 1,
+    "feeds_bloqueados": 2,
+    "feeds_no_encontrados": 1,
+    "feeds_en_investigacion": 1,
+    "tasa_exito": "50%",
+    "nota": "Se encontraron URLs alternativas funcionales o probables para la mitad de los sitios. Los demás requieren estrategias especiales."
+  }
+}

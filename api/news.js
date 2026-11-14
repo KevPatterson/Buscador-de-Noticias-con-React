@@ -224,9 +224,23 @@ export default async function handler(req, res) {
   }
 
   // Ultimo recurso: feeds RSS directamente del servidor.
-  const fuentesObjetivo = fuente
-    ? FUENTES_RSS.filter((fuenteRSS) => fuenteRSS.dominio.toLowerCase() === fuente.toLowerCase())
-    : FUENTES_RSS;
+  // Si se especifica una fuente, intentar cargarla como RSS primero
+  let fuentesObjetivo = [];
+  
+  if (fuente) {
+    // Buscar exactamente en FUENTES_RSS
+    const fuenteRSS = FUENTES_RSS.find((f) => f.dominio.toLowerCase() === fuente.toLowerCase());
+    if (fuenteRSS) {
+      fuentesObjetivo = [fuenteRSS];
+    } else {
+      // Si no encuentra, intenta como búsqueda separada por comas
+      fuentesObjetivo = FUENTES_RSS.filter((fuenteRSS) =>
+        fuente.toLowerCase().split(',').some((item) => item.trim().toLowerCase() === fuenteRSS.dominio.toLowerCase())
+      );
+    }
+  } else {
+    fuentesObjetivo = FUENTES_RSS;
+  }
 
   const todos = (
     await Promise.all(

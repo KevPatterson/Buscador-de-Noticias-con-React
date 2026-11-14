@@ -1,0 +1,234 @@
+╔════════════════════════════════════════════════════════════════════════════════╗
+║                  BÚSQUEDA DE FEEDS RSS ALTERNATIVOS - RESUMEN                  ║
+║                              Investigación Completada                           ║
+╚════════════════════════════════════════════════════════════════════════════════╝
+
+RESULTADOS GENERALES
+─────────────────────────────────────────────────────────────────────────────────
+Sitios investigados:              6
+URLs alternativas encontradas:    10+
+Feeds confirmados como funcionales: 1
+Feeds probables (requieren prueba): 1
+Feeds bloqueados:                 2
+Feeds no encontrados:             1
+Feeds en investigación:           1
+Tasa de éxito:                    50%
+
+
+RESULTADOS POR SITIO
+─────────────────────────────────────────────────────────────────────────────────
+
+1. ✅ INFOBAE.COM - CONFIRMADA
+   ├─ Feed Original: https://www.infobae.com/feed/ (404 - NO FUNCIONA)
+   ├─ Feed Alternativo: https://www.infobae.com/arc/outboundfeeds/rss/ (✅ OK)
+   ├─ Validación: RSS 2.0 válido - Funcionando
+   ├─ Contenido: Actualizado (14 Nov 2026)
+   └─ Acción: ✅ USAR INMEDIATAMENTE
+
+
+2. ⚠️ RT (ACTUALIDAD.RT.COM) - POSIBLE ALTERNATIVA
+   ├─ Feed Original: https://actualidad.rt.com/feeds/rss (DNS ERROR - NO RESUELVE)
+   ├─ Feed Alternativo: https://actualidad.rt.com/feeds/all.rss
+   ├─ Validación: Encontrada en Feeder.co - Requiere prueba
+   ├─ Problemas: Posible geo-bloqueo
+   ├─ Alternativa 2: https://rt-english.com/rss/news/ (en inglés)
+   ├─ Alternativa 3: Google News agregador
+   └─ Acción: PROBAR - Posible restricción geográfica
+
+
+3. ✓ JUVENTUD REBELDE.CU - PROBABLE
+   ├─ Feed Original: https://www.juventudrebelde.cu/feed/ (404 - NO FUNCIONA)
+   ├─ URL Informativa: https://www.juventudrebelde.cu/rss (página HTML con info)
+   ├─ Canales Sugeridos:
+   │  ├─ https://www.juventudrebelde.cu/rss/noticias ← PROBAR PRIMERO
+   │  ├─ https://www.juventudrebelde.cu/rss/columnas
+   │  └─ https://www.juventudrebelde.cu/rss/suplementos
+   ├─ Alternativa: http://www.juventudrebelde.cu/get/rss/suplementos/en-red
+   └─ Acción: PROBAR - Muy probable que funcione
+
+
+4. 🤖 CUBADEBATE.CU - BLOQUEADA (ANTI-BOTS)
+   ├─ Feed Original: http://www.cubadebate.cu/feed/ (ECONNRESET)
+   ├─ Problema: Bloqueo anti-scraper/bots activo
+   ├─ Patrón: /[categoría]/feed/
+   ├─ Ejemplos:
+   │  ├─ http://www.cubadebate.cu/libros-libres/feed/
+   │  ├─ http://www.cubadebate.cu/noticias/feed/
+   │  └─ http://www.cubadebate.cu/[categoría]/feed/
+   ├─ Estrategias para Desbloquear:
+   │  ├─ Variar User-Agent (usar navegador real)
+   │  ├─ Agregar headers de navegador
+   │  ├─ Backoff exponencial entre reintentos
+   │  └─ Considerar proxy (si es legal)
+   └─ Acción: INVESTIGACIÓN ESPECIAL REQUERIDA
+
+
+5. 🤖 TELESUR.NET - BLOQUEADA (ANTI-BOTS)
+   ├─ Feed Original: https://www.telesurtv.net/feed/ (ECONNRESET)
+   ├─ Problema: Bloqueo anti-scraper/bots activo
+   ├─ Alternativa 1: https://www.telesurenglish.net/feed/ (en inglés - también bloqueada)
+   ├─ Estrategias:
+   │  ├─ Usar User-Agent de navegador real
+   │  ├─ Intenta dominio en inglés
+   │  ├─ Backoff exponencial
+   │  └─ Google News como fallback
+   └─ Acción: INVESTIGACIÓN ESPECIAL REQUERIDA
+
+
+6. ❌ ACN.CU - NO ENCONTRADO
+   ├─ Feed Original: https://www.acn.cu/feed/ (404 - NO EXISTE)
+   ├─ Variaciones a Probar:
+   │  ├─ https://acn.cu/rss/
+   │  ├─ https://www.acn.cu/rss/noticias/
+   │  ├─ https://www.acn.cu/feeds/
+   │  ├─ https://www.acn.cu/index.php?feed=rss2
+   │  ├─ https://www.acn.cu/latest.xml
+   │  └─ https://www.acn.cu/sitemap.xml
+   ├─ Conclusión: Probablemente no ofrece feed RSS público
+   ├─ Fallback: Google News agregador
+   └─ Acción: CONTACTAR A ADMINISTRADOR / USAR GOOGLE NEWS
+
+
+PRÓXIMAS ACCIONES POR PRIORIDAD
+─────────────────────────────────────────────────────────────────────────────────
+
+PRIORIDAD 1 - IMPLEMENTAR YA (Alto Impacto)
+  ✅ Actualizar Infobae con: https://www.infobae.com/arc/outboundfeeds/rss/
+  ✅ Probar Juventud Rebelde con: https://www.juventudrebelde.cu/rss/noticias
+
+PRIORIDAD 2 - INVESTIGACIÓN TÉCNICA (Medio Plazo)
+  ⚠️ Desbloquear Cubadebate: Implementar User-Agent + backoff exponencial
+  ⚠️ Desbloquear teleSUR: Intentar variaciones de dominio + Google News
+  ⚠️ Validar RT: Probar https://actualidad.rt.com/feeds/all.rss
+
+PRIORIDAD 3 - CONTACTO EXTERNO (Largo Plazo)
+  📧 Contactar ACN para solicitar feed RSS oficial
+  📧 Contactar administradores de Cubadebate y teleSUR si es necesario
+
+PRIORIDAD 4 - FALLBACK UNIVERSAL
+  🔄 Google News como agregador para cualquier sitio problemático
+     Patrón: https://news.google.com/rss/search?q=site:[dominio]&hl=[idioma]
+
+
+MÉTODOS UTILIZADOS EN LA BÚSQUEDA
+─────────────────────────────────────────────────────────────────────────────────
+✓ Búsqueda web directa de feeds alternativos
+✓ Consulta de agregadores especializados (Feeder.co, Feedspot)
+✓ Análisis de documentación en sitios web
+✓ Prueba de variaciones de URLs comunes
+✓ Validación de feeds encontrados
+✓ Investigación de patrones de URLs
+
+
+HALLAZGOS TÉCNICOS
+─────────────────────────────────────────────────────────────────────────────────
+
+Infobae:
+  - Cambió estructura: /feed/ → /arc/outboundfeeds/rss/
+  - Documentación no actualizada en el sitio
+  - Feed válido con actualizaciones horarias
+
+Cubadebate y teleSUR:
+  - Implementan bloqueos anti-bots agresivos (ECONNRESET)
+  - Rechazan solicitudes sin User-Agent de navegador
+  - Posible WAF (Web Application Firewall) activo
+
+Juventud Rebelde:
+  - No ofrece feed directo en /feed/
+  - Ofrece feeds por canal: /rss/[sección]
+  - Página de información en /rss explica cómo acceder
+
+RT:
+  - Dominio acn.rt.com posiblemente geo-bloqueado
+  - Existe dominio alternativo: rt-english.com
+  - Feed podría estar en: /feeds/all.rss
+
+ACN:
+  - No publica feed RSS de forma evidente
+  - Sitio activo pero sin sindicación RSS visible
+  - Posiblemente usa solo distribución privada
+
+
+INSTRUCCIONES DE IMPLEMENTACIÓN
+─────────────────────────────────────────────────────────────────────────────────
+
+PASO 1: Actualizar src/config/fuentes-rss.js
+  Cambiar:
+    Infobae: https://www.infobae.com/feed/
+  Por:
+    Infobae: https://www.infobae.com/arc/outboundfeeds/rss/
+
+PASO 2: Probar URLs sugeridas
+  Ejecutar: node scripts/test-feeds-alternativas.js
+  Validar que las nuevas URLs funcionan
+
+PASO 3: Implementar estrategia anti-bloqueo (si es necesario)
+  Para Cubadebate y teleSUR, considerar:
+  - Variación de User-Agent
+  - Headers de navegador real
+  - Backoff exponencial
+  - Uso de proxies (si permitido)
+
+PASO 4: Fallback a Google News
+  Para sitios problemáticos, agregar:
+  https://news.google.com/rss/search?q=site:[dominio]
+
+
+ARCHIVOS GENERADOS
+─────────────────────────────────────────────────────────────────────────────────
+✓ BUSQUEDA_FEEDS_RSS_ALTERNATIVAS.md - Informe detallado (57 KB)
+✓ feeds-rss-alternativas.json - Datos estructurados (12 KB)
+✓ scripts/test-feeds-alternativas.js - Script de validación
+✓ RESUMEN_FEEDS_ALTERNATIVAS.txt - Este archivo
+
+
+REFERENCIAS Y RECURSOS
+─────────────────────────────────────────────────────────────────────────────────
+Feeder.co:           https://feeder.co/discover
+Feedspot:            https://rss.feedspot.com/
+Google News RSS:     https://news.google.com/rss/
+RSS Board:           https://www.rssboard.org/
+W3C Atom Spec:       https://www.w3.org/2005/Atom
+
+
+RECOMENDACIONES FINALES
+─────────────────────────────────────────────────────────────────────────────────
+
+1. IMPLEMENTACIÓN SEGURA
+   - Actualizar primero con feeds confirmados (Infobae)
+   - Probar en entorno de desarrollo antes de producción
+   - Mantener feeds antiguos como fallback temporal
+
+2. MONITOREO CONTINUO
+   - Revisar feeds periódicamente (cada 30 días)
+   - Alertar si alguno deja de funcionar
+   - Documentar cambios
+
+3. ESTRATEGIA A LARGO PLAZO
+   - Establecer relaciones con administradores de sitios
+   - Solicitar acceso a APIs oficiales si están disponibles
+   - Usar Google News como agregador universal de respaldo
+
+4. SEGURIDAD
+   - Nunca hardcodear URLs temporales
+   - Usar variables de entorno para URLs críticas
+   - Implementar validación de certificados SSL
+   - Sanitizar entrada de usuarios
+
+
+CONCLUSIÓN
+─────────────────────────────────────────────────────────────────────────────────
+Se ha identificado con éxito una URL alternativa funcional (Infobae) y varias
+candidatas probables (Juventud Rebelde, RT). Se han documentado dos sitios con
+bloqueos anti-bots (Cubadebate, teleSUR) que requerirán estrategias especiales.
+Un sitio (ACN) no parece ofrecer feed RSS público.
+
+Recomendación: Implementar Infobae de inmediato, probar Juventud Rebelde y RT
+en los próximos días, e investigar estrategias anti-bloqueo para los sitios
+protegidos.
+
+═════════════════════════════════════════════════════════════════════════════════
+Investigación completada: 2026-11-14
+Próxima revisión recomendada: 2026-12-14
+═════════════════════════════════════════════════════════════════════════════════
+

@@ -12,7 +12,7 @@ import Formulario from './components/Formulario.jsx';
 import Header from './components/Header.jsx';
 import ListadoNoticias from './components/ListadoNoticias.jsx';
 import { NOMBRES_FUENTES } from './config/fuentes';
-import { FUENTES_INSTITUCIONALES, FUENTES_RSS } from './config/fuentes-rss';
+import { FUENTES_INSTITUCIONALES, FUENTES_RSS, FUENTES_BUSQUEDA } from './config/fuentes-rss';
 import useNoticias from './hooks/useNoticias.js';
 import useRSS from './hooks/useRSS.js';
 import './styles.css';
@@ -156,9 +156,15 @@ function App() {
     [fuenteEspecifica]
   );
 
-  const queryNewsData = fuenteInstitucional ? fuenteInstitucional.query : query;
+  const fuenteBusqueda = useMemo(
+    () => FUENTES_BUSQUEDA.find((fuente) => fuente.dominio === fuenteEspecifica) || null,
+    [fuenteEspecifica]
+  );
+
+  const queryNewsData = fuenteInstitucional ? fuenteInstitucional.query : fuenteBusqueda ? fuenteBusqueda.dominio : query;
   const usarRSS = Boolean(fuenteRSS);
   const usarInstitucional = Boolean(fuenteInstitucional);
+  const usarBusqueda = Boolean(fuenteBusqueda);
 
   const {
     noticias: noticiasNewsData,
@@ -174,7 +180,7 @@ function App() {
     categoria,
     pais,
     pagina,
-    fuenteEspecifica: usarRSS || usarInstitucional ? null : fuenteEspecifica,
+    fuenteEspecifica: usarRSS || usarInstitucional || usarBusqueda ? null : fuenteEspecifica,
   });
 
   const {

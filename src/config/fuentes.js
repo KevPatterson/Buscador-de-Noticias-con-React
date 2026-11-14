@@ -20,6 +20,10 @@ export const DOMINIOS_PREFERIDOS = [
   "espanol.cgtn.com",
   "noticiaslatam.lat",
   "venceremos.cu",
+  "infobae.com",
+  "actualidad.rt.com",
+  "telesurtv.net",
+  "hispantv.com",
 ];
 
 // Dominios adicionales que sirven contenido de fuentes configuradas pero no son
@@ -48,6 +52,10 @@ export const NOMBRES_FUENTES = {
   'espanol.cgtn.com': 'CGTN Espanol',
   'noticiaslatam.lat': 'Sputnik Mundo',
   'venceremos.cu': 'Venceremos',
+  'infobae.com': 'Infobae',
+  'actualidad.rt.com': 'RT en Español',
+  'telesurtv.net': 'teleSUR',
+  'hispantv.com': 'HispanTV',
 };
 
 export const DOMINIOS_NO_NEWDATA = [
@@ -63,6 +71,7 @@ export const DOMINIOS_NO_NEWDATA = [
   'radiobayamo.icrt.cu',
   'tribuna.cu',
   'tvbrics.com',
+  'hispantv.com',
 ];
 
 export const DOMINIOS_NEWDATA = DOMINIOS_PREFERIDOS.filter((dominio) => !DOMINIOS_NO_NEWDATA.includes(dominio));
