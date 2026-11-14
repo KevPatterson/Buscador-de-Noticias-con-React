@@ -5,8 +5,14 @@ import { dedupeNoticias } from '../lib/dedupe.js';
 
 const UMBRAL_RESULTADOS_PREFERIDOS = 5;
 
-const buildBaseKey = ({ query, categoria, pais }) =>
-  JSON.stringify({ query: query.trim().toLowerCase(), categoria, language: 'es', pais });
+const buildBaseKey = ({ query, categoria, pais, fuenteEspecifica }) =>
+  JSON.stringify({
+    query: query.trim().toLowerCase(),
+    categoria,
+    language: 'es',
+    pais,
+    fuente: fuenteEspecifica || '',
+  });
 
 const buildRequestKey = ({ query, categoria, pais, pagina, fuenteEspecifica }) =>
   JSON.stringify({
@@ -185,10 +191,10 @@ const fetchNoticias = async ({ categoria, pais, query, pagina, signal, fuenteEsp
 };
 
 const useNoticias = (params) => {
-  const { query = '', categoria = 'top', pais = 'cu', pagina = '', fuenteEspecifica = null } = params || {};
+  const { query = '', categoria = 'top', pais = 'cu', pagina = '', fuenteEspecifica = null, claveFuente = null } = params || {};
 
   const [noticias, setNoticias] = useState([]);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [totalResults, setTotalResults] = useState(0);
   const [nextPage, setNextPage] = useState(null);
@@ -210,14 +216,43 @@ const useNoticias = (params) => {
   }, [query]);
 
   const baseKey = useMemo(
-    () => buildBaseKey({ query: debouncedQuery, categoria, pais }),
-    [categoria, debouncedQuery, pais]
+    () => buildBaseKey({ query: debouncedQuery, categoria, pais, fuenteEspecifica }),
+    [categoria, debouncedQuery, fuenteEspecifica, pais]
   );
 
   const requestKey = useMemo(
     () => buildRequestKey({ query: debouncedQuery, categoria, pais, pagina, fuenteEspecifica }),
     [categoria, debouncedQuery, fuenteEspecifica, pais, pagina]
   );
+
+  // Reinicio sincrono cuando cambia la consulta, la categoria, el pais o la
+  // fuente: nunca se muestran noticias de la consulta anterior ni el estado
+  // vacio mientras llega la nueva respuesta.
+  const [fuenteAplicada, setFuenteAplicada] = useState(claveFuente);
+  const [baseKeyAplicada, setBaseKeyAplicada] = useState(baseKey);
+  if (fuenteAplicada !== claveFuente) {
+    // Fuente nueva: no se reutiliza la cache (corresponde a otra edicion);
+    // se muestra carga hasta que llegue la respuesta.
+    setFuenteAplicada(claveFuente);
+    setBaseKeyAplicada(baseKey);
+    setNoticias([]);
+    setTotalResults(0);
+    setHasMore(true);
+    setNextPage(null);
+    setError('');
+    setLoading(true);
+    setIsLoadingMore(false);
+  } else if (baseKeyAplicada !== baseKey) {
+    const enCache = cacheRef.current.get(requestKey);
+    setBaseKeyAplicada(baseKey);
+    setNoticias(enCache?.noticias || []);
+    setTotalResults(enCache?.totalResults || 0);
+    setHasMore(enCache ? enCache.hasMore : true);
+    setNextPage(enCache?.nextPage || null);
+    setError('');
+    setLoading(!enCache);
+    setIsLoadingMore(false);
+  }
 
   useEffect(() => {
     const queryTrim = debouncedQuery.trim();
@@ -312,8 +347,12 @@ const useNoticias = (params) => {
         setError(requestError.message || 'Error de red. Intenta nuevamente.');
         setHasMore(false);
       } finally {
-        setLoading(false);
-        setIsLoadingMore(false);
+        // En StrictMode el primer efecto se aborta antes de que el segundo
+        // inicie; no se desactiva la carga para no parpadear estado vacio.
+        if (!controller.signal.aborted) {
+          setLoading(false);
+          setIsLoadingMore(false);
+        }
       }
     };
 

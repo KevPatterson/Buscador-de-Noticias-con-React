@@ -161,7 +161,7 @@ function App() {
     [fuenteEspecifica]
   );
 
-  const queryNewsData = fuenteInstitucional ? fuenteInstitucional.query : fuenteBusqueda ? fuenteBusqueda.dominio : query;
+  const queryNewsData = fuenteInstitucional ? fuenteInstitucional.query : fuenteBusqueda ? fuenteBusqueda.query : query;
   const usarRSS = Boolean(fuenteRSS);
   const usarInstitucional = Boolean(fuenteInstitucional);
   const usarBusqueda = Boolean(fuenteBusqueda);
@@ -180,6 +180,7 @@ function App() {
     categoria,
     pais,
     pagina,
+    claveFuente: fuenteEspecifica,
     fuenteEspecifica: usarRSS || usarInstitucional || usarBusqueda ? null : fuenteEspecifica,
   });
 

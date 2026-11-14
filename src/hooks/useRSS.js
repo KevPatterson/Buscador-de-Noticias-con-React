@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { FUENTES_RSS } from '../config/fuentes-rss';
 
 const filtrarPorQuery = (results, query) => {
@@ -13,17 +13,28 @@ const filtrarPorQuery = (results, query) => {
 };
 
 const useRSS = ({ fuenteEspecifica, query }) => {
+  const fuenteRSS = FUENTES_RSS.find((fuente) => fuente.dominio === fuenteEspecifica) || null;
+
   const [noticias, setNoticias] = useState([]);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(() => Boolean(fuenteRSS));
   const [error, setError] = useState('');
   const [feedNoDisponible, setFeedNoDisponible] = useState(false);
   const [feedMensaje, setFeedMensaje] = useState('');
   const [retryTick, setRetryTick] = useState(0);
 
-  const fuenteRSS = useMemo(
-    () => FUENTES_RSS.find((fuente) => fuente.dominio === fuenteEspecifica) || null,
-    [fuenteEspecifica]
-  );
+  // Reinicio sincrono cuando cambia la fuente: aunque el estado anterior
+  // siga en el render anterior, nunca se muestran las noticias de la
+  // fuente anterior mientras llega la nueva respuesta.
+  const fuenteKey = fuenteRSS?.feed || '';
+  const [fuenteAplicada, setFuenteAplicada] = useState(fuenteKey);
+  if (fuenteAplicada !== fuenteKey) {
+    setFuenteAplicada(fuenteKey);
+    setNoticias([]);
+    setLoading(Boolean(fuenteRSS));
+    setError('');
+    setFeedNoDisponible(false);
+    setFeedMensaje('');
+  }
 
   useEffect(() => {
     // Si no hay fuente RSS seleccionada, limpiar estado

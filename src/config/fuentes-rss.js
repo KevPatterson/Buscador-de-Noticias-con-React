@@ -134,6 +134,27 @@ export const FUENTES_RSS = [
     descripcion: 'Agencia de noticias - agregado desde Google News',
   },
   {
+    dominio: 'cubasi.cu',
+    nombre: 'CubaSí',
+    feed: 'https://news.google.com/rss/search?q=site:cubasi.cu&hl=es-419&gl=CU&ceid=CU:es-419',
+    tieneContentEncoded: false,
+    descripcion: 'Periódico cubano - agregado desde Google News (el sitio no publica RSS propio)',
+  },
+  {
+    dominio: 'venceremos.cu',
+    nombre: 'Venceremos',
+    feed: 'https://news.google.com/rss/search?q=site:venceremos.cu&hl=es-419&gl=CU&ceid=CU:es-419',
+    tieneContentEncoded: false,
+    descripcion: 'Periódico provincial - agregado desde Google News',
+  },
+  {
+    dominio: 'hispantv.com',
+    nombre: 'HispanTV',
+    feed: 'https://news.google.com/rss/search?q=site:hispantv.com&hl=es-419&gl=CU&ceid=CU:es-419',
+    tieneContentEncoded: false,
+    descripcion: 'Agencia iraní en español - agregado desde Google News',
+  },
+  {
     dominio: 'telesurtv.net',
     nombre: 'teleSUR',
     feed: 'https://news.google.com/rss/search?q=site:telesurtv.net&hl=es-419&gl=CU&ceid=CU:es-419',
