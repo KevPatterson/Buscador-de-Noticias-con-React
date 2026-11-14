@@ -673,10 +673,12 @@ function App() {
           fuenteEspecifica={fuenteEspecifica}
           onChangeFuenteEspecifica={(nuevoDominio) => {
             setPagina('');
+            setQuery('');
             setFuenteEspecifica(nuevoDominio || null);
           }}
           onClearFuenteEspecifica={() => {
             setPagina('');
+            setQuery('');
             setFuenteEspecifica(null);
           }}
         />

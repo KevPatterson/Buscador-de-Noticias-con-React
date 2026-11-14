@@ -26,6 +26,7 @@ const useRSS = ({ fuenteEspecifica, query }) => {
   );
 
   useEffect(() => {
+    // Si no hay fuente RSS seleccionada, limpiar estado
     if (!fuenteRSS) {
       setNoticias([]);
       setLoading(false);
@@ -35,19 +36,28 @@ const useRSS = ({ fuenteEspecifica, query }) => {
       return;
     }
 
+    // Crear cancelación token para esta solicitud
     const controller = new AbortController();
+    let isMounted = true;
 
     const consultarRSS = async () => {
-      setLoading(true);
-      setError('');
-      setFeedNoDisponible(false);
-      setFeedMensaje('');
+      // Resetear estado al iniciar solicitud
+      if (isMounted) {
+        setLoading(true);
+        setError('');
+        setFeedNoDisponible(false);
+        setFeedMensaje('');
+        setNoticias([]);
+      }
 
       try {
         const response = await fetch(`/api/rss?feed=${encodeURIComponent(fuenteRSS.feed)}`, {
           signal: controller.signal,
         });
         const data = await response.json();
+
+        // Solo actualizar si el componente sigue montado y no fue cancelado
+        if (!isMounted || controller.signal.aborted) return;
 
         if (!response.ok || data.status !== 'ok') {
           throw new Error(data.message || 'No se pudo obtener el feed RSS.');
@@ -68,19 +78,23 @@ const useRSS = ({ fuenteEspecifica, query }) => {
         const filtradas = filtrarPorQuery(originales, query);
         setNoticias(filtradas.length > 0 ? filtradas : originales);
       } catch (requestError) {
-        if (requestError.name === 'AbortError') return;
+        if (requestError.name === 'AbortError' || !isMounted) return;
         setError(requestError.message || 'No se pudo obtener el feed RSS.');
         setNoticias([]);
         setFeedNoDisponible(true);
         setFeedMensaje(requestError.message || 'Fuente temporalmente no disponible');
       } finally {
-        setLoading(false);
+        if (isMounted) {
+          setLoading(false);
+        }
       }
     };
 
     consultarRSS();
 
+    // Cleanup: cancelar solicitud y marcar como desmontado
     return () => {
+      isMounted = false;
       controller.abort();
     };
   }, [fuenteRSS, query, retryTick]);
