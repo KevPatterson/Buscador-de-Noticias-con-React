@@ -22,6 +22,8 @@ export const DOMINIOS_PREFERIDOS = [
   "tvbrics.com",
   "espanol.cgtn.com",
   "infobae.com",
+  "venceremos.cu",
+  "hispantv.com",
 ];
 
 // Dominios adicionales que sirven contenido de fuentes configuradas pero no son
@@ -52,6 +54,8 @@ export const NOMBRES_FUENTES = {
   'tvbrics.com': 'TV BRICS',
   'espanol.cgtn.com': 'CGTN Espanol',
   'infobae.com': 'Infobae',
+  'venceremos.cu': 'Venceremos',
+  'hispantv.com': 'HispanTV',
 };
 
 export const DOMINIOS_NO_NEWDATA = [
@@ -67,6 +71,7 @@ export const DOMINIOS_NO_NEWDATA = [
   'radiobayamo.icrt.cu',
   'tribuna.cu',
   'tvbrics.com',
+  'hispantv.com',
 ];
 
 export const DOMINIOS_NEWDATA = DOMINIOS_PREFERIDOS.filter((dominio) => !DOMINIOS_NO_NEWDATA.includes(dominio));
