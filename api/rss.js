@@ -1,7 +1,8 @@
 import { XMLParser } from 'fast-xml-parser';
 import { secureFetch, SecureFetchError, validateUrl } from '../src/lib/secureFetch.js';
 import { configurarCors } from '../src/lib/cors.js';
-import { normalizeText } from '../src/lib/textUtil.js';
+import { htmlToPlainText, normalizeText } from '../src/lib/textUtil.js';
+import { FUENTES_RSS } from '../src/config/fuentes-rss.js';
 
 const parser = new XMLParser({
   ignoreAttributes: false,
@@ -83,6 +84,13 @@ export const fetchFeed = async (feedUrl, config = {}) => {
   const sourceName = pickText(channel?.title) || new URL(feedUrl).hostname;
   const sourceDomain = new URL(feedUrl).hostname;
 
+  // Los feeds de Google News (site:) agrupan el sitio real; para diferenciar
+  // las fuentes en las cards se muestra el nombre configurado seguido de
+  // "(news.google.com)". Los demas feeds conservan su comportamiento.
+  const nombreGoogle = sourceDomain === 'news.google.com' && config?.nombre
+    ? `${config.nombre} (news.google.com)`
+    : '';
+
   // Función auxiliar para verificar si una URL debe ser excluida
   const shouldExcludeUrl = (url) => {
     if (!config.excludePatterns || !Array.isArray(config.excludePatterns)) return false;
@@ -100,10 +108,21 @@ export const fetchFeed = async (feedUrl, config = {}) => {
       const contentEncoded = pickText(item?.['content:encoded']) || '';
       // Punto 2.1: si el feed trae contenido completo (content:encoded con mas de ~500
       // caracteres limpios), se usa directamente y no hace falta scrapeo.
-      const description =
+      // La descripcion se entrega como texto plano: los feeds de Google News
+      // traen HTML crudo que de otra forma se mostraria escapado en la card.
+      let description =
         contentEncoded && normalizeText(contentEncoded).length > 500
-          ? contentEncoded
-          : descripcion || contentEncoded;
+          ? htmlToPlainText(contentEncoded)
+          : htmlToPlainText(descripcion || contentEncoded);
+
+      // Google News anade el nombre de la fuente al final de la descripcion;
+      // la card ya lo muestra, asi que se elimina esa cola redundante.
+      if (nombreGoogle && config.nombre) {
+        const cola = ` ${config.nombre.toLowerCase()}`;
+        if (description.toLowerCase().endsWith(cola)) {
+          description = description.slice(0, -cola.length).trim();
+        }
+      }
 
       return {
         title: pickText(item?.title),
@@ -111,9 +130,9 @@ export const fetchFeed = async (feedUrl, config = {}) => {
         pubDate: item?.pubDate || item?.published || item?.updated || '',
         description,
         image_url: pickImage(item),
-        source_name: sourceName,
+        source_name: nombreGoogle || sourceName,
         source_domain: sourceDomain,
-        source_id: sourceDomain,
+        source_id: nombreGoogle || sourceDomain,
         content_encoded: contentEncoded,
       };
     });
@@ -139,7 +158,8 @@ export default async function handler(req, res) {
   }
 
   try {
-    const { results, message, statusCode } = await fetchFeed(feedUrl);
+    const config = FUENTES_RSS.find((f) => f.feed === feedUrl) || {};
+    const { results, message, statusCode } = await fetchFeed(feedUrl, config);
     res.setHeader('Cache-Control', 's-maxage=3600, stale-while-revalidate=86400');
     return res.status(statusCode || 200).json({
       status: (statusCode && statusCode >= 400) ? 'error' : 'ok',

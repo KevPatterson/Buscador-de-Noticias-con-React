@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { FUENTES_RSS } from '../config/fuentes-rss';
+import { ordenarPorFechaDesc } from '../lib/orden';
 
 const filtrarPorQuery = (results, query) => {
   const queryTrim = (query || '').trim().toLowerCase();
@@ -87,7 +88,7 @@ const useRSS = ({ fuenteEspecifica, query }) => {
         }
 
         const filtradas = filtrarPorQuery(originales, query);
-        setNoticias(filtradas.length > 0 ? filtradas : originales);
+        setNoticias(ordenarPorFechaDesc(filtradas.length > 0 ? filtradas : originales));
       } catch (requestError) {
         if (requestError.name === 'AbortError' || !isMounted) return;
         setError(requestError.message || 'No se pudo obtener el feed RSS.');

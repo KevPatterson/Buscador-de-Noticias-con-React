@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { GRUPOS_DOMINIOS } from '../config/fuentes';
 import { fetchConFallback } from '../services/fetchConFallback';
 import { dedupeNoticias } from '../lib/dedupe.js';
+import { ordenarPorFechaDesc } from '../lib/orden.js';
 
 const UMBRAL_RESULTADOS_PREFERIDOS = 5;
 
@@ -298,6 +299,7 @@ const useNoticias = (params) => {
         });
 
         const normalizadas = dedupeNoticias(normalizeNews(data.results));
+        const ordenadas = ordenarPorFechaDesc(normalizadas);
         const paginaSiguiente = data.nextPage || null;
         const tieneMas = Boolean(paginaSiguiente && normalizadas.length > 0);
 
@@ -307,10 +309,10 @@ const useNoticias = (params) => {
             normalizadas.forEach((item) => {
               if (item.link) mapa.set(item.link, item);
             });
-            return Array.from(mapa.values());
+            return ordenarPorFechaDesc(Array.from(mapa.values()));
           });
         } else {
-          setNoticias(normalizadas);
+          setNoticias(ordenadas);
         }
 
         const total = typeof data.totalResults === 'number' ? data.totalResults : normalizadas.length;
@@ -321,7 +323,7 @@ const useNoticias = (params) => {
         setError('');
 
         const snapshot = {
-          noticias: isPaginationRequest && lastBaseKeyRef.current === baseKey ? undefined : normalizadas,
+          noticias: isPaginationRequest && lastBaseKeyRef.current === baseKey ? undefined : ordenadas,
           totalResults: total,
           hasMore: tieneMas,
           nextPage: paginaSiguiente,
@@ -361,7 +363,7 @@ const useNoticias = (params) => {
     return () => {
       controller.abort();
     };
-  }, [baseKey, categoria, debouncedQuery, fuenteEspecifica, pagina, pais, requestKey, retryTick]);
+  }, [baseKey, categoria, debouncedQuery, fuenteEspecifica, pagina, pais, requestKey, retryTick, claveFuente]);
 
   const refetch = useCallback(() => {
     setRetryTick((value) => value + 1);

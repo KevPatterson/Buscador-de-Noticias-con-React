@@ -16,6 +16,43 @@ export const normalizeForCompare = (value = '') =>
     .toLowerCase()
     .trim();
 
+// Convierte HTML de feeds RSS a texto plano legible para las cards,
+// decodificando entidades comunes y colapsando espacios.
+const ENTIDADES_HTML = {
+  '&nbsp;': ' ',
+  '&amp;': '&',
+  '&lt;': '<',
+  '&gt;': '>',
+  '&quot;': '"',
+  '&#39;': "'",
+  '&apos;': "'",
+  '&hellip;': '…',
+  '&mdash;': '—',
+  '&ndash;': '–',
+  '&laquo;': '«',
+  '&raquo;': '»',
+  '&lsquo;': '‘',
+  '&rsquo;': '’',
+  '&ldquo;': '“',
+  '&rdquo;': '”',
+};
+
+export const htmlToPlainText = (value = '') => {
+  if (!value) return '';
+
+  let texto = String(value)
+    .replace(/<br\s*\/?>/gi, '\n')
+    .replace(/<\/(p|div|li|h[1-6])>/gi, '\n')
+    .replace(/<[^>]*>/g, '')
+    .replace(/&nbsp;|\u00a0/g, ' ');
+
+  texto = texto.replace(/&(amp|lt|gt|quot|#39|apos|hellip|mdash|ndash|laquo|raquo|lsquo|rsquo|ldquo|rdquo);/g, (entidad) => ENTIDADES_HTML[entidad] || entidad);
+  texto = texto.replace(/&#(\d+);/g, (_, codigo) => String.fromCodePoint(Number(codigo)));
+  texto = texto.replace(/&#x([0-9a-f]+);/gi, (_, codigo) => String.fromCodePoint(parseInt(codigo, 16)));
+
+  return normalizeText(texto);
+};
+
 export const dedupeParagraphs = (value = '') => {
   const seen = new Set();
   const result = [];
