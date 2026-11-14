@@ -1,0 +1,160 @@
+{
+  "validacion": {
+    "fecha": "2024",
+    "totalFeeds": 7,
+    "resumen": {
+      "funcionales": 1,
+      "noFuncionales": 6,
+      "tasaExito": "14.3%"
+    },
+    "feeds": [
+      {
+        "id": 1,
+        "nombre": "Tribuna",
+        "url": "https://www.tribuna.cu/feed/",
+        "estado": "FUNCIONAL",
+        "codigoHttp": 200,
+        "formato": "RSS",
+        "items": 10,
+        "contentType": "application/rss+xml; charset=UTF-8",
+        "error": null,
+        "causa": null,
+        "accesibilidad": "Directa, sin restricciones",
+        "verificado": true,
+        "primerItem": "Tribunal Provincial Popular de La Habana recibe calificación de confor..."
+      },
+      {
+        "id": 2,
+        "nombre": "Cubadebate",
+        "url": "https://www.cubadebate.cu/feed/",
+        "estado": "NO_FUNCIONAL",
+        "codigoHttp": null,
+        "formato": null,
+        "items": 0,
+        "contentType": null,
+        "error": "read ECONNRESET",
+        "causa": "Conexión rechazada - Bloqueo anti-bots activo",
+        "accesibilidad": "Bloqueada",
+        "verificado": false,
+        "tipoError": "ECONNRESET"
+      },
+      {
+        "id": 3,
+        "nombre": "Juventud Rebelde",
+        "url": "https://www.juventudrebelde.cu/feed/",
+        "estado": "NO_FUNCIONAL",
+        "codigoHttp": 404,
+        "formato": null,
+        "items": 0,
+        "contentType": null,
+        "error": "404 Not Found",
+        "causa": "Recurso no encontrado - Feed no disponible en esta URL",
+        "accesibilidad": "No encontrado",
+        "verificado": false,
+        "tipoError": "HTTP_404"
+      },
+      {
+        "id": 4,
+        "nombre": "ACN",
+        "url": "https://www.acn.cu/feed/",
+        "estado": "NO_FUNCIONAL",
+        "codigoHttp": 404,
+        "formato": null,
+        "items": 0,
+        "contentType": null,
+        "error": "404 Not Found",
+        "causa": "Recurso no encontrado - Feed no disponible en esta URL",
+        "accesibilidad": "No encontrado",
+        "verificado": false,
+        "tipoError": "HTTP_404"
+      },
+      {
+        "id": 5,
+        "nombre": "Infobae",
+        "url": "https://www.infobae.com/feed/",
+        "estado": "NO_FUNCIONAL",
+        "codigoHttp": 404,
+        "formato": null,
+        "items": 0,
+        "contentType": null,
+        "error": "404 Not Found",
+        "causa": "Recurso no encontrado - Feed RSS removido o URL incorrecta",
+        "accesibilidad": "No encontrado",
+        "verificado": false,
+        "tipoError": "HTTP_404"
+      },
+      {
+        "id": 6,
+        "nombre": "RT",
+        "url": "https://actualidad.rt.com/feeds/rss",
+        "estado": "NO_FUNCIONAL",
+        "codigoHttp": null,
+        "formato": null,
+        "items": 0,
+        "contentType": null,
+        "error": "getaddrinfo ENOTFOUND",
+        "causa": "Dominio no resolvible - Posible bloqueo geográfico o restricción DNS",
+        "accesibilidad": "No resolvible",
+        "verificado": false,
+        "tipoError": "DNS_ERROR"
+      },
+      {
+        "id": 7,
+        "nombre": "teleSUR",
+        "url": "https://www.telesurtv.net/feed/",
+        "estado": "NO_FUNCIONAL",
+        "codigoHttp": null,
+        "formato": null,
+        "items": 0,
+        "contentType": null,
+        "error": "read ECONNRESET",
+        "causa": "Conexión rechazada - Bloqueo anti-bots o problema de servidor",
+        "accesibilidad": "Bloqueada",
+        "verificado": false,
+        "tipoError": "ECONNRESET"
+      }
+    ],
+    "clasificacionErrores": {
+      "HTTP_404": {
+        "count": 3,
+        "feeds": ["Juventud Rebelde", "ACN", "Infobae"],
+        "descripcion": "Feed RSS no disponible en URL especificada"
+      },
+      "ECONNRESET": {
+        "count": 2,
+        "feeds": ["Cubadebate", "teleSUR"],
+        "descripcion": "Servidor rechaza conexión automática - Posible bloqueo anti-bots"
+      },
+      "DNS_ERROR": {
+        "count": 1,
+        "feeds": ["RT"],
+        "descripcion": "Dominio no resolvible - Posible geo-bloqueo"
+      }
+    },
+    "recomendaciones": {
+      "altaPrioridad": [
+        "Usar Tribuna como la única fuente RSS verificada funcional",
+        "Actualizar URLs de feeds con estado 404",
+        "Contactar administradores de sitios bloqueados"
+      ],
+      "mediaPrioridad": [
+        "Implementar scraping web como fallback",
+        "Agregar reintentos con backoff exponencial",
+        "Variar User-Agent para parecer navegador",
+        "Mantener lista de feeds actualizada"
+      ],
+      "bajaPrioridad": [
+        "Investigar proxies para geo-bloqueos",
+        "Contactar proveedores CDN",
+        "Monitorear cambios de URLs"
+      ]
+    },
+    "configuracionTecnica": {
+      "herramienta": "Node.js + fast-xml-parser",
+      "timeout": "20 segundos",
+      "maxSize": "5MB",
+      "maxRedirecciones": 5,
+      "userAgent": "Navegador estándar (Windows NT 10.0; Win64; x64)"
+    }
+  }
+}
