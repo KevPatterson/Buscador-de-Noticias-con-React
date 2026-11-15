@@ -75,6 +75,8 @@ const ListadoNoticias = ({
     query,
     emptyMessage,
     fuenteActiva,
+    sectionTitle = 'Ultimas Noticias',
+    errorMessage,
     onSuggestionSearch,
     onClearQuery,
     selectedNews,
@@ -102,6 +104,11 @@ const ListadoNoticias = ({
             color: 'error',
             tooltip: 'APIs sin creditos. Mostrando feeds RSS directos.',
         },
+        gdelt: {
+            label: 'GDELT',
+            color: 'info',
+            tooltip: 'Tendencias globales de las ultimas 24 horas.',
+        },
     };
 
     const chipInfo = sourceChipConfig[fuenteActiva] || sourceChipConfig.newsdata;
@@ -128,7 +135,7 @@ const ListadoNoticias = ({
 
             <Typography textAlign="center" marginY={4} variant="h4" component="h2" color="secondary">
                 <Box component="span" className="section-title">
-                    Ultimas Noticias
+                    {sectionTitle}
                 </Box>
             </Typography>
 
@@ -143,12 +150,14 @@ const ListadoNoticias = ({
                     severity="error"
                     sx={{ mb: 3 }}
                     action={
-                        <Button color="inherit" size="small" onClick={onRetry}>
-                            Reintentar
-                        </Button>
+                        onRetry ? (
+                            <Button color="inherit" size="small" onClick={onRetry}>
+                                Reintentar
+                            </Button>
+                        ) : undefined
                     }
                 >
-                    Ocurrio un problema al consultar la API. Verifica tu API key o intenta nuevamente.
+                    {errorMessage || 'Ocurrio un problema al consultar la API. Verifica tu API key o intenta nuevamente.'}
                 </Alert>
             )}
 

@@ -1,8 +1,11 @@
 /* eslint-disable react/prop-types */
+import { useEffect, useState } from 'react';
 import Badge from '@mui/material/Badge';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
+import Checkbox from '@mui/material/Checkbox';
 import CircularProgress from '@mui/material/CircularProgress';
+import FormControlLabel from '@mui/material/FormControlLabel';
 import IconButton from '@mui/material/IconButton';
 import Paper from '@mui/material/Paper';
 import SvgIcon from '@mui/material/SvgIcon';
@@ -27,7 +30,35 @@ const CloseIcon = (props) => (
   </SvgIcon>
 );
 
-const FloatingCart = ({ selectedCount, isLoading, hasPendingExtraction = false, onGenerate, onClearSelection }) => {
+const FloatingCart = ({
+  selectedCount,
+  isLoading,
+  hasPendingExtraction = false,
+  incluirResumenes = false,
+  onChangeIncluirResumenes,
+  onGenerate,
+  onClearSelection,
+}) => {
+  // Solo se ofrece la opcion si el servidor tiene configurado el proveedor.
+  const [resumenDisponible, setResumenDisponible] = useState(false);
+
+  useEffect(() => {
+    let activo = true;
+
+    fetch('/api/resumen')
+      .then((response) => (response.ok ? response.json() : null))
+      .then((data) => {
+        if (activo) setResumenDisponible(Boolean(data?.disponible));
+      })
+      .catch(() => {
+        if (activo) setResumenDisponible(false);
+      });
+
+    return () => {
+      activo = false;
+    };
+  }, []);
+
   if (selectedCount <= 0) return null;
 
   const buttonDisabled = isLoading || hasPendingExtraction || selectedCount === 0;
@@ -91,6 +122,32 @@ const FloatingCart = ({ selectedCount, isLoading, hasPendingExtraction = false, 
           >
             Noticias seleccionadas
           </Typography>
+
+          {resumenDisponible && (
+            <FormControlLabel
+              control={
+                <Checkbox
+                  size="small"
+                  checked={incluirResumenes}
+                  onChange={(event) => onChangeIncluirResumenes?.(event.target.checked)}
+                  sx={{ py: 0.25 }}
+                />
+              }
+              label={
+                <Typography
+                  variant="caption"
+                  color="text.secondary"
+                  sx={{
+                    fontFamily: '"IBM Plex Mono", monospace',
+                    fontSize: { xs: '0.62rem', sm: '0.68rem' },
+                  }}
+                >
+                  Resumir con IA
+                </Typography>
+              }
+              sx={{ ml: 0 }}
+            />
+          )}
         </Box>
 
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.6, width: { xs: '100%', sm: 'auto' } }}>

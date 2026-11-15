@@ -2,7 +2,7 @@ import Alert from '@mui/material/Alert';
 import Box from '@mui/material/Box';
 import Divider from '@mui/material/Divider';
 import Snackbar from '@mui/material/Snackbar';
-import { Container, Typography } from '@mui/material';
+import { Button, Container, Typography } from '@mui/material';
 import { saveAs } from 'file-saver';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Document, HeadingLevel, Packer, Paragraph, TextRun, AlignmentType } from 'docx';
@@ -15,6 +15,7 @@ import { NOMBRES_FUENTES } from './config/fuentes';
 import { FUENTES_INSTITUCIONALES, FUENTES_RSS, FUENTES_BUSQUEDA } from './config/fuentes-rss';
 import useNoticias from './hooks/useNoticias.js';
 import useRSS from './hooks/useRSS.js';
+import useTendencias from './hooks/useTendencias.js';
 import './styles.css';
 import { extractArticle } from './services/extractArticle.js';
 import cleanArticle from './services/cleanArticle.js';
@@ -124,6 +125,42 @@ const isBlockedReportDomain = (url = '') => {
   return REPORT_BLOCKED_DOMAINS.some((domain) => host === domain || host.endsWith(`.${domain}`));
 };
 
+// Genera resumenes con IA por lotes de 3 (opcional, solo si el usuario lo pide).
+const agregarResumenes = async (lista) => {
+  const items = [];
+  let conResumen = 0;
+
+  for (let i = 0; i < lista.length; i += 3) {
+    const lote = lista.slice(i, i + 3);
+    const resueltos = await Promise.all(
+      lote.map(async (noticia) => {
+        try {
+          const respuesta = await fetch('/api/resumen', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              titulo: noticia.title,
+              texto: noticia.reportText || noticia.description || '',
+            }),
+          });
+
+          if (!respuesta.ok) return noticia;
+          const data = await respuesta.json();
+          if (!data?.resumen) return noticia;
+
+          conResumen += 1;
+          return { ...noticia, resumen: data.resumen };
+        } catch {
+          return noticia;
+        }
+      })
+    );
+    items.push(...resueltos);
+  }
+
+  return { items, conResumen };
+};
+
 function App() {
   const [query, setQuery] = useState('');
   const [categoria, setCategoria] = useState('top');
@@ -144,6 +181,8 @@ function App() {
   const [extrayendo, setExtrayendo] = useState({});
   const [isGeneratingReport, setIsGeneratingReport] = useState(false);
   const [reportError, setReportError] = useState('');
+  const [incluirResumenes, setIncluirResumenes] = useState(false);
+  const [tendenciasActivas, setTendenciasActivas] = useState(false);
   const sentinelRef = useRef(null);
 
   const fuenteRSS = useMemo(
@@ -204,6 +243,19 @@ function App() {
   const hasMoreActivo = usarRSS ? false : hasMore;
   const isLoadingMoreActivo = usarRSS ? false : isLoadingMore;
 
+  const {
+    noticias: noticiasTendencias,
+    loading: loadingTendencias,
+    error: errorTendencias,
+    refetch: refetchTendencias,
+  } = useTendencias({ activo: tendenciasActivas, query: debouncedQuery });
+
+  // La vista de tendencias GDELT se superpone al listado sin tocar sus hooks.
+  const noticiasVisibles = tendenciasActivas ? noticiasTendencias : noticias;
+  const loadingVisible = tendenciasActivas ? loadingTendencias : loading;
+  const errorVisible = tendenciasActivas ? errorTendencias : error;
+  const totalVisible = tendenciasActivas ? noticiasTendencias.length : totalResults;
+
   useEffect(() => {
     const timer = setTimeout(() => {
       setDebouncedQuery(query.trim());
@@ -239,7 +291,7 @@ function App() {
     const observer = new IntersectionObserver(
       (entries) => {
         const [entry] = entries;
-        if (!entry.isIntersecting || loading || isLoadingMoreActivo) return;
+        if (tendenciasActivas || !entry.isIntersecting || loading || isLoadingMoreActivo) return;
         if (!hasMoreActivo || !nextPageActivo) return;
         setPagina(nextPageActivo);
       },
@@ -253,7 +305,7 @@ function App() {
       if (node) observer.unobserve(node);
       observer.disconnect();
     };
-  }, [hasMoreActivo, isLoadingMoreActivo, loading, nextPageActivo]);
+  }, [hasMoreActivo, isLoadingMoreActivo, loading, nextPageActivo, tendenciasActivas]);
 
   const chipActivo = useMemo(
     () => BUSQUEDAS_RAPIDAS.find((item) => item.value.toLowerCase() === query.trim().toLowerCase())?.value || '',
@@ -557,6 +609,15 @@ function App() {
         throw new Error('Todas las noticias seleccionadas pertenecen a dominios excluidos del boletin.');
       }
 
+      let noticiasBoletin = filteredNews;
+      if (incluirResumenes) {
+        const resultado = await agregarResumenes(filteredNews);
+        noticiasBoletin = resultado.items;
+        if (resultado.conResumen === 0) {
+          setReportError('No se pudieron generar resumenes; el boletin se genero sin ellos.');
+        }
+      }
+
       const children = [
         new Paragraph({
           alignment: AlignmentType.CENTER,
@@ -566,7 +627,7 @@ function App() {
         }),
       ];
 
-      filteredNews.forEach((news, index) => {
+      noticiasBoletin.forEach((news, index) => {
         const title = news.title || `Noticia ${index + 1}`;
         const content = cleanArticle(news.reportText || 'Sin contenido disponible.');
         const sourceUrl = news.link || 'Sin URL de fuente';
@@ -578,6 +639,16 @@ function App() {
             children: [createDocxTextRun(title, { bold: true, size: DOCX_TITLE_SIZE })],
           })
         );
+
+        // El resumen generado se muestra en cursiva antes del cuerpo.
+        if (news.resumen) {
+          children.push(
+            new Paragraph({
+              spacing: { before: 40, after: 140 },
+              children: [createDocxTextRun(news.resumen, { italic: true, size: DOCX_BODY_SIZE })],
+            })
+          );
+        }
 
         content.split(/\n{2,}/).forEach((block) => {
           if (!block.trim()) return;
@@ -646,11 +717,13 @@ function App() {
       .slice(0, 6);
   }, [noticias]);
 
-  const sourceLabel = usarRSS
-    ? 'RSS DIRECTO'
-    : fuenteEspecifica
-      ? (NOMBRES_FUENTES[fuenteEspecifica] || fuenteEspecifica).toUpperCase()
-      : 'NEWSDATA';
+  const sourceLabel = tendenciasActivas
+    ? 'GDELT'
+    : usarRSS
+      ? 'RSS DIRECTO'
+      : fuenteEspecifica
+        ? (NOMBRES_FUENTES[fuenteEspecifica] || fuenteEspecifica).toUpperCase()
+        : 'NEWSDATA';
 
   return (
     <Box className="newsroom-page">
@@ -658,6 +731,23 @@ function App() {
       <BreakingNewsBanner headlines={breakingHeadlines} />
 
       <Container maxWidth="lg" className="newsroom-main">
+        <Box sx={{ display: 'flex', justifyContent: 'flex-end', mb: 1 }}>
+          <Button
+            variant={tendenciasActivas ? 'contained' : 'outlined'}
+            color="secondary"
+            size="small"
+            onClick={() => setTendenciasActivas((valor) => !valor)}
+            sx={{
+              fontFamily: '"IBM Plex Mono", monospace',
+              fontSize: '0.7rem',
+              letterSpacing: '0.06em',
+              textTransform: 'none',
+            }}
+          >
+            {tendenciasActivas ? 'Volver a noticias' : 'Tendencias globales (24h)'}
+          </Button>
+        </Box>
+
         <Box className="search-strip">
         <Formulario
           query={query}
@@ -693,20 +783,22 @@ function App() {
 
         <Box className="news-section">
         <ListadoNoticias
-          noticias={noticias}
-          loading={loading}
-          error={error}
-          totalResults={totalResults}
-          onRetry={handleRetry}
+          noticias={noticiasVisibles}
+          loading={loadingVisible}
+          error={errorVisible}
+          totalResults={totalVisible}
+          onRetry={tendenciasActivas ? refetchTendencias : handleRetry}
           vista={vista}
           sentinelRef={sentinelRef}
           isLoadingMore={isLoadingMoreActivo}
-          hasMore={hasMoreActivo}
+          hasMore={tendenciasActivas ? false : hasMoreActivo}
           query={query}
-          emptyMessage={mensajeSinResultados}
+          emptyMessage={tendenciasActivas ? 'No hay tendencias globales disponibles en este momento.' : mensajeSinResultados}
+          errorMessage={tendenciasActivas ? 'No se pudieron obtener las tendencias globales. Intenta nuevamente.' : undefined}
           onSuggestionSearch={handleQuickSearch}
           onClearQuery={() => handleChangeQuery('')}
-          fuenteActiva={usarRSS ? 'rss' : 'newsdata'}
+          fuenteActiva={tendenciasActivas ? 'gdelt' : usarRSS ? 'rss' : 'newsdata'}
+          sectionTitle={tendenciasActivas ? 'Tendencias globales' : 'Ultimas Noticias'}
           selectedNews={selectedNews}
           onToggleSelect={toggleNewsSelection}
           extrayendo={extrayendo}
@@ -717,6 +809,8 @@ function App() {
           selectedCount={selectedNews.length}
           isLoading={isGeneratingReport}
           hasPendingExtraction={hasPendingExtraction}
+          incluirResumenes={incluirResumenes}
+          onChangeIncluirResumenes={setIncluirResumenes}
           onGenerate={() => handleGenerateReport(selectedNews)}
           onClearSelection={() => setSelectedNews([])}
         />
