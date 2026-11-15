@@ -11,8 +11,9 @@ const parser = new XMLParser({
 });
 
 // Tiempo de espera por feed: un medio lento o colgado no debe bloquear toda
-// la rama RSS ni acercarse al limite de la serverless function.
-const TIEMPO_ESPERA_FEED_MS = 6000;
+// la rama RSS ni acercarse al limite de la serverless function. 8s equilibra
+// la latencia fria con sitios cubanos notoriamente lentos (~5-7s).
+const TIEMPO_ESPERA_FEED_MS = 8000;
 
 const asArray = (value) => {
   if (!value) return [];
@@ -64,6 +65,8 @@ const pickImage = (item) => {
 // en cada request, lo que multiplica latencia y peticiones salientes. TTL corto
 // porque las noticias son frescas; en Vercel la memoria es por instancia, asi
 // que el cache amortiza las requests repetidas dentro de la misma instancia.
+// Solo se cachean respuestas con contenido: los fallos transitorios no se
+// envenenan y quedan disponibles para un reintento inmediato.
 const CACHE_FEED_TTL_MS = 90 * 1000;
 const cacheFeeds = new Map();
 
@@ -100,7 +103,6 @@ export const fetchFeed = async (feedUrl, config = {}) => {
       throw error;
     }
     const sinServicio = { results: [], message: 'Feed no disponible', statusCode: 200 };
-    guardarCacheFeed(feedUrl, sinServicio);
     return sinServicio;
   }
 
@@ -108,7 +110,6 @@ export const fetchFeed = async (feedUrl, config = {}) => {
   const channel = parsed?.rss?.channel || parsed?.feed;
   if (!channel) {
     const noReconocido = { results: [], message: 'Formato RSS no reconocido', statusCode: 200 };
-    guardarCacheFeed(feedUrl, noReconocido);
     return noReconocido;
   }
 
@@ -172,7 +173,7 @@ export const fetchFeed = async (feedUrl, config = {}) => {
     });
 
   const resultado = { results, message: '', statusCode: response.statusCode };
-  guardarCacheFeed(feedUrl, resultado);
+  if (results.length > 0) guardarCacheFeed(feedUrl, resultado);
   return resultado;
 };
 

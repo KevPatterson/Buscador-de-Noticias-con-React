@@ -13,11 +13,20 @@ const validarFeed = async (fuente) => {
   try {
     console.log(`\nValidando: ${fuente.nombre} (${fuente.dominio})`);
     console.log(`Feed: ${fuente.feed.substring(0, 60)}...`);
-    
-    const resultado = await fetchFeed(fuente.feed, {
+
+    // Reintento único: medios cubanos y Google News fallan por transitorios
+    // o limitación de tasa; un falso negativo contaminaría el reporte.
+    let resultado = await fetchFeed(fuente.feed, {
       excludePatterns: fuente.excludePatterns || [],
     });
-    
+    if ((resultado.results || []).length === 0) {
+      console.log('  …reintentando tras transitorio…');
+      await new Promise((resolve) => setTimeout(resolve, 1500));
+      resultado = await fetchFeed(fuente.feed, {
+        excludePatterns: fuente.excludePatterns || [],
+      });
+    }
+
     const numResultados = (resultado.results || []).length;
     
     if (numResultados === 0) {

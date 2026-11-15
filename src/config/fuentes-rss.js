@@ -38,9 +38,9 @@ export const FUENTES_RSS = [
   {
     dominio: 'granma.cu',
     nombre: 'Granma',
-    feed: 'https://www.granma.cu/feed/',
-    tieneContentEncoded: true,
-    descripcion: 'Órgano oficial del Consejo de Estado',
+    feed: 'https://news.google.com/rss/search?q=site:granma.cu&hl=es-419&gl=CU&ceid=CU:es-419',
+    tieneContentEncoded: false,
+    descripcion: 'Órgano oficial del Consejo de Estado - agregado desde Google News (el sitio bloquea su feed directo)',
   },
   {
     dominio: 'radioreloj.cu',
