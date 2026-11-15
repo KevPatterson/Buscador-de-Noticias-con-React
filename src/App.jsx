@@ -65,8 +65,6 @@ const DOC_BLOCKLIST = [
   'latest stories',
   'previous article',
   'next article',
-  'menu',
-  'menú',
   'loaderchats',
   'do not process my data',
   'all rights reserved',
@@ -77,8 +75,8 @@ const DOC_BLOCKLIST = [
   'solo disponible en planes de pago',
   'acceder al contenido multimedia',
   'pic.twitter.com/',
-  'the post ',
-  'appeared first on',
+  '©',
+  'copyright',
 ];
 
 const DOCX_FONT = 'Arial';
@@ -107,6 +105,26 @@ const canonicalizeTitle = (value = '') =>
     .replace(/\b(fotos?|foto|video|informe|actualizacion|actualización|post)\b/g, ' ')
     .replace(/\s+/g, ' ')
     .trim();
+
+// Limita cuantas extracciones simultaneas se lanzan contra /api/scrape. Sin
+// limite, seleccionar decenas de noticias dispara todas las peticiones a la vez.
+const mapConLimite = async (items = [], limite = 4, fn) => {
+  const resultados = new Array(items.length);
+  let siguiente = 0;
+
+  const trabajador = async () => {
+    for (;;) {
+      const indice = siguiente;
+      siguiente += 1;
+      if (indice >= items.length) return;
+      resultados[indice] = await fn(items[indice], indice);
+    }
+  };
+
+  const cantidad = Math.min(Math.max(limite, 1), items.length);
+  await Promise.all(Array.from({ length: cantidad }, () => trabajador()));
+  return resultados;
+};
 
 const getHostname = (value = '') => {
   if (!value) return '';
@@ -184,6 +202,9 @@ function App() {
   const [incluirResumenes, setIncluirResumenes] = useState(false);
   const [tendenciasActivas, setTendenciasActivas] = useState(false);
   const sentinelRef = useRef(null);
+  // Evita que dos clics seguidos sobre la misma tarjeta lancen extracciones
+  // duplicadas o vuelvan a seleccionar lo que se acaba de quitar.
+  const seleccionesEnCurso = useRef(new Set());
 
   const fuenteRSS = useMemo(
     () => FUENTES_RSS.find((fuente) => fuente.dominio === fuenteEspecifica) || null,
@@ -345,23 +366,17 @@ function App() {
   const toggleNewsSelection = async (newsItem) => {
     const itemKey = newsItem.link || newsItem.title;
     if (!itemKey) return;
-
-    setSelectedNews((current) => {
-      const exists = current.some((item) => (item.link || item.title) === itemKey);
-      if (exists) {
-        return current.filter((item) => (item.link || item.title) !== itemKey);
-      }
-
-      return current; // añadirá tras extracción
-    });
+    if (seleccionesEnCurso.current.has(itemKey)) return;
 
     const alreadySelected = selectedNews.some((item) => (item.link || item.title) === itemKey);
     if (alreadySelected) {
-      // fue removida por otro control simultáneo
+      setSelectedNews((current) => current.filter((item) => (item.link || item.title) !== itemKey));
       return;
     }
 
-    // Marcar extracción en curso
+    // Marca la extraccion en curso y evita el doble clic antes de que React
+    // aplique el cambio de estado.
+    seleccionesEnCurso.current.add(itemKey);
     setExtrayendo((prev) => ({ ...prev, [itemKey]: true }));
 
     try {
@@ -388,6 +403,7 @@ function App() {
         return [...prev, { ...newsItem, contenidoCompleto: '', autorExtraido: '', _contenidoExtraido: false }];
       });
     } finally {
+      seleccionesEnCurso.current.delete(itemKey);
       setExtrayendo((prev) => {
         const copy = { ...prev };
         delete copy[itemKey];
@@ -456,7 +472,10 @@ function App() {
       }
     });
 
-    if (cutIndex > 0) {
+    // Solo se recorta cuando el marcador aparece avanzado el texto: si es una
+    // mencion temprana (navegacion o una frase del propio articulo) no debe
+    // eliminar el cuerpo.
+    if (cutIndex > 200) {
       text = text.slice(0, cutIndex);
     }
 
@@ -494,10 +513,9 @@ function App() {
 
   const isUsefulArticleText = (value = '') => {
     const text = cleanDocText(value);
-    if (text.length < 220) return false;
-
-    const lower = text.toLowerCase();
-    if (DOC_BLOCKLIST.some((entry) => lower.includes(entry))) return false;
+    // Un articulo breve pero real (nota de radio, comunicado) es valido; el
+    // umbral anterior de 220 caracteres lo sustituia por el resumen del feed.
+    if (text.length < 120) return false;
 
     if ((text.match(/https?:\/\//gi) || []).length > 8) return false;
     if ((text.match(/<[^>]+>/g) || []).length > 0) return false;
@@ -528,20 +546,23 @@ function App() {
     setReportError('');
 
     try {
-      const enrichedNews = await Promise.all(
-        newsList.map(async (news) => {
+      const enrichedNews = await mapConLimite(newsList, 4, async (news) => {
           const encodedUrl = encodeURIComponent(news.link || '');
           const fallbackText = pickFallbackText(news);
 
-          // Si ya fue extraida al seleccionar, reutilizarla
+          // Si ya fue extraida al seleccionar, reutilizarla solo cuando el
+          // texto es realmente util. Si la extraccion fallo (por un corte de
+          // red temporal), el boletin reintenta antes de caer al resumen RSS.
           if (news.contenidoCompleto) {
             const scrapedText = removeDocBoilerplate(news.contenidoCompleto || '');
             const isCompleteText = isUsefulArticleText(scrapedText);
-            return {
-              ...news,
-              reportText: isCompleteText ? scrapedText : fallbackText,
-              scraped: isCompleteText,
-            };
+            if (isCompleteText) {
+              return {
+                ...news,
+                reportText: scrapedText,
+                scraped: true,
+              };
+            }
           }
 
           if (!encodedUrl) {
@@ -581,8 +602,7 @@ function App() {
               scraped: false,
             };
           }
-        })
-      );
+        });
 
       const uniqueNews = [];
       const seenKeys = new Set();

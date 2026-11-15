@@ -64,6 +64,19 @@ const esImagenSegura = (imageUrl) => {
     }
 };
 
+// Los enlaces vienen de feeds RSS de terceros: solo se permiten http/https
+// para evitar javascript:, data: u otros esquemas ejecutables.
+const sanitizarUrl = (value) => {
+    if (!value) return '#';
+
+    try {
+        const parsed = new URL(value);
+        return ['http:', 'https:'].includes(parsed.protocol) ? parsed.href : '#';
+    } catch {
+        return '#';
+    }
+};
+
 const formatRelativeDate = (value) => {
     if (!value) return 'Sin fecha';
 
@@ -88,7 +101,7 @@ const Noticia = ({ noticia, vista, index = 0, selectedNews = [], onToggleSelect,
     const title = noticia.title || 'Titular no disponible';
     const description = noticia.description || 'Sin descripcion disponible.';
     const source = noticia.source_id || 'Fuente desconocida';
-    const url = noticia.link || '#';
+    const url = sanitizarUrl(noticia.link);
     const imageUrl = noticia.image_url;
     // Si el feed no trae imagen (o su host esta bloqueado), se resuelve
     // og:image de forma diferida al entrar la card en el viewport.
@@ -199,6 +212,7 @@ const Noticia = ({ noticia, vista, index = 0, selectedNews = [], onToggleSelect,
                             color="primary"
                             size="small"
                             onClick={handleSelectClick}
+                            disabled={estaExtrayendo}
                             sx={{ minWidth: { xs: 0, md: 122 } }}
                         >
                             {isSelected ? 'Seleccionada' : 'Seleccionar'}

@@ -35,8 +35,9 @@ export const DOMINIOS_PREFERIDOS = [
 ];
 
 // Dominios adicionales que sirven contenido de fuentes configuradas pero no son
-// subdominios del dominio del feed (p. ej. radio26.icrt.cu enlaza a radio26.cu).
-export const DOMINIOS_ADICIONALES = ['radio26.cu'];
+// subdominios del dominio del feed (p. ej. radio26.icrt.cu enlaza a radio26.cu,
+// y RT en Español redirige actualidad.rt.com a actualidad-rt.com).
+export const DOMINIOS_ADICIONALES = ['radio26.cu', 'actualidad-rt.com'];
 
 export const NOMBRES_FUENTES = {
   'cubadebate.cu': 'Cubadebate',
@@ -62,6 +63,7 @@ export const NOMBRES_FUENTES = {
   'venceremos.cu': 'Venceremos',
   'infobae.com': 'Infobae',
   'actualidad.rt.com': 'RT en Español',
+  'actualidad-rt.com': 'RT en Español',
   'telesurtv.net': 'teleSUR',
   'hispantv.com': 'HispanTV',
   'trabajadores.cu': 'Trabajadores',

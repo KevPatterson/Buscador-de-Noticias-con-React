@@ -1,5 +1,7 @@
 import { Readability } from "@mozilla/readability";
 import { JSDOM } from "jsdom";
+import { secureFetch, SecureFetchError, validateUrl } from '../src/lib/secureFetch.js';
+import { resolverUrlGoogleNews } from './scrape.js';
 import { PROXIES, DOMAIN_RULES } from '../config/extractors.js';
 
 // Selectores de elementos a eliminar ANTES de pasarle el DOM a Readability
@@ -66,6 +68,28 @@ const SELECTORES_BASURA = [
   "[role='contentinfo']",
 ];
 
+// El scraper propio es la via principal: extrae parrafos en <div>, resuelve
+// enlaces de Google News y respeta los limites de red. Readability queda como
+// respaldo cuando devuelve contenido insuficiente.
+const ejecutarScrapeLocal = async (url) => {
+  try {
+    const { default: scrapeHandler } = await import('./scrape.js');
+    let capturado = null;
+    const mockRes = {
+      status() { return this; },
+      json(obj) { capturado = obj; return this; },
+      setHeader() {},
+    };
+    await scrapeHandler(
+      { query: { url: encodeURIComponent(url) }, headers: {}, method: 'GET' },
+      mockRes
+    );
+    return capturado;
+  } catch {
+    return null;
+  }
+};
+
 export default async function handler(req, res) {
   if (req.method !== "GET") {
     return res.status(405).json({ error: "Método no permitido" });
@@ -79,35 +103,51 @@ export default async function handler(req, res) {
 
   let urlObj;
   try {
-    urlObj = new URL(decodeURIComponent(url));
-  } catch {
-    return res.status(400).json({ error: "URL inválida" });
+    // Valida protocolo, credenciales, longitud y allowlist antes de conectar.
+    urlObj = validateUrl(url);
+  } catch (error) {
+    const status = error instanceof SecureFetchError && error.statusCode >= 400 && error.statusCode < 500
+      ? error.statusCode
+      : 400;
+    return res.status(status).json({ error: "URL inválida" });
   }
 
   try {
-    const response = await fetch(urlObj.href, {
-      headers: {
-        "User-Agent":
-          "Mozilla/5.0 (compatible; NewsletterBot/1.0; +https://example.org)",
-        Accept: "text/html,application/xhtml+xml",
-        "Accept-Language": "es-ES,es;q=0.9",
-      },
-      signal: AbortSignal.timeout(10000),
-    });
+    const destino = await resolverUrlGoogleNews(urlObj.href);
+    if (!destino) {
+      return res.status(422).json({ error: 'No se pudo resolver el enlace del artículo', fallback: true });
+    }
+    urlObj = new URL(destino);
 
-    if (!response.ok) {
-      return res.status(response.status).json({
-        error: `El sitio devolvió error ${response.status}`,
+    // Primero se intenta el scraper propio, que ya limpia el texto y entiende
+    // los parrafos dentro de <div>. Si no alcanza, se usa Readability.
+    const scrapeData = await ejecutarScrapeLocal(urlObj.href);
+    const scrapeText = String(scrapeData?.cuerpo || '').trim();
+    if (scrapeText.length >= 200) {
+      res.setHeader("Cache-Control", "s-maxage=600, stale-while-revalidate=60");
+      return res.status(200).json({
+        titulo: scrapeData?.titulo || '',
+        contenido: scrapeText,
+        extracto: '',
+        autor: scrapeData?.autor || '',
+        nombreSitio: urlObj.hostname,
+        idioma: 'es',
+        longitud: scrapeText.length,
       });
     }
 
-    const html = await response.text();
+    // secureFetch aplica allowlist, validacion DNS/IP, redirecciones, limites
+    // de tamano y timeout; ya no se descarga con fetch directo.
+    const { body: html } = await secureFetch(urlObj.href, {
+      tiempoEsperaMs: 12000,
+      maxBytes: 3 * 1024 * 1024,
+    });
 
+    // Sin ejecucion de scripts ni carga de recursos remotos: el HTML del
+    // articulo puede contener contenido hostil y JSDOM no debe ejecutarlo.
     const dom = new JSDOM(html, {
       url: urlObj.href,
       contentType: "text/html",
-      runScripts: "outside-only",
-      resources: "usable",
     });
 
     const document = dom.window.document;
@@ -116,38 +156,6 @@ export default async function handler(req, res) {
     const host = urlObj.hostname.toLowerCase();
     const domainRule = Object.keys(DOMAIN_RULES).find((d) => host === d || host.endsWith(`.${d}`));
     const domainConfig = domainRule ? DOMAIN_RULES[domainRule] : null;
-
-    // Si el dominio prefiere usar el scraper interno, intentar eso primero
-    if (domainConfig?.preferScrape) {
-      try {
-        const scrapeMod = await import('../api/scrape.js');
-        const mockReq = { query: { url: urlObj.href } };
-        let captured;
-        const mockRes = {
-          _status: 200,
-          status(code) { this._status = code; return this; },
-          json(obj) { captured = obj; },
-          setHeader() {},
-        };
-        await scrapeMod.default(mockReq, mockRes);
-        const proxyText = captured?.fullText || '';
-        const cleanedProxy = limpiarTexto(proxyText || '');
-        if (cleanedProxy.length >= 200) {
-          res.setHeader("Cache-Control", "s-maxage=600, stale-while-revalidate=60");
-          return res.status(200).json({
-            titulo: '',
-            contenido: cleanedProxy,
-            extracto: '',
-            autor: '',
-            nombreSitio: urlObj.hostname,
-            idioma: 'es',
-            longitud: cleanedProxy.length,
-          });
-        }
-      } catch {
-        // ignore scraper errors and continue to Readability
-      }
-    }
 
     // Combine global and domain-specific selectors to remove
     const removeSelectors = [...SELECTORES_BASURA];
@@ -222,41 +230,19 @@ export default async function handler(req, res) {
       for (const proxy of PROXIES) {
         try {
           if (proxy === 'internal:scrape') {
-            // llamar al handler local scrape.js para obtener fullText
-            // import dinámico para evitar cargarlo en entornos donde no existe
-            try {
-              // eslint-disable-next-line import/no-dynamic-require, global-require
-              const scrapeMod = await import('../api/scrape.js');
-              const mockReq = { query: { url: urlObj.href } };
-              let captured;
-              const mockRes = {
-                _status: 200,
-                status(code) { this._status = code; return this; },
-                json(obj) { captured = obj; },
-                setHeader() {},
-              };
-              // Ejecutar handler local
-              // eslint-disable-next-line no-await-in-loop
-              await scrapeMod.default(mockReq, mockRes);
-              const proxyText = captured?.fullText || '';
-              const cleanedProxy = limpiarTexto(proxyText || '');
-              if (cleanedProxy.length >= 200) {
-                textoLimpio = cleanedProxy;
-                break;
-              }
-            } catch {
-              // ignore internal scrape errors
+            const scrapeFallback = await ejecutarScrapeLocal(urlObj.href);
+            const cleanedProxy = limpiarTexto(String(scrapeFallback?.cuerpo || ''));
+            if (cleanedProxy.length >= 200) {
+              textoLimpio = cleanedProxy;
+              break;
             }
           } else {
             const proxyUrl = `${proxy}${cleanTarget}`;
-            // eslint-disable-next-line no-await-in-loop
             const pResp = await fetch(proxyUrl, {
               headers: { 'User-Agent': 'Mozilla/5.0 (compatible; NewsletterBot/1.0)', Accept: 'text/plain' },
               signal: AbortSignal.timeout(8000),
             });
-            // eslint-disable-next-line no-await-in-loop
             if (pResp.ok) {
-              // eslint-disable-next-line no-await-in-loop
               const rawText = await pResp.text();
               const cleanedProxy = limpiarTexto(rawText || '');
               if (cleanedProxy.length >= 200) {
@@ -291,22 +277,42 @@ export default async function handler(req, res) {
       longitud: textoLimpio.length || article.length || 0,
     });
   } catch (error) {
-    if (error.name === "TimeoutError") {
+    // No se exponen detalles internos (mensajes de red, stack, allowlist).
+    if (error instanceof SecureFetchError) {
+      const status = error.statusCode === 504 ? 408 : error.statusCode;
+      return res.status(status).json({ error: 'No se pudo acceder al artículo' });
+    }
+    if (error.name === "TimeoutError" || error.name === "AbortError") {
       return res.status(408).json({ error: "El sitio tardó demasiado en responder" });
     }
-    return res.status(500).json({ error: error.message });
+    return res.status(500).json({ error: "No se pudo procesar el artículo" });
   }
 }
 
 function limpiarTexto(texto) {
-  return texto
-    .split("\n")
+  const normalizado = String(texto || '')
+    .replace(/\r\n|\r/g, '\n')
+    .replace(/[ \t]+/g, ' ')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
+
+  if (!normalizado) return '';
+
+  // Readability a veces devuelve un unico bloque sin saltos de linea. En ese
+  // caso se divide por oraciones para no descartar el articulo entero cuando
+  // una sola frase coincide con un patron de boilerplate.
+  const vinoEnBloques = normalizado.includes('\n');
+  const bloques = vinoEnBloques
+    ? normalizado.split(/\n+/)
+    : normalizado.split(/(?<=[.!?])\s+(?=[A-ZÁÉÍÓÚÑ0-9"¿¡])/);
+
+  const lineasLimpias = bloques
     .map((linea) => linea.trim())
     .filter((linea) => {
-      if (linea.length === 0) return false;
+      if (!linea) return false;
       if (linea.length < 25 && !linea.endsWith(".")) {
-        const esSubtitulo = /^[A-ZÁÉÍÓÚ][^.]{10,}$/.test(linea);
-        return esSubtitulo;
+        // Conserva subtitulos cortos, descarta migas y etiquetas.
+        return /^[A-ZÁÉÍÓÚ][^.]{10,}$/.test(linea);
       }
       return true;
     })
@@ -342,14 +348,10 @@ function limpiarTexto(texto) {
         /continúa (leyendo|después)/,
       ];
       return !patronesBasura.some((patron) => patron.test(lineaMin));
-    })
-    .reduce((acc, linea) => {
-      const ultimo = acc[acc.length - 1];
-      if (linea === "" && ultimo === "") return acc;
-      return [...acc, linea];
-    }, [])
-    .join("\n")
-    .trim();
+    });
+
+  // Si se partio un bloque unico, se vuelve a unir con espacios.
+  return (vinoEnBloques ? lineasLimpias.join("\n\n") : lineasLimpias.join(" ")).trim();
 }
 
 /*

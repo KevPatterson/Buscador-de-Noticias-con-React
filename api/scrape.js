@@ -1,5 +1,5 @@
 import * as cheerio from 'cheerio';
-import { validateUrl } from '../src/lib/secureFetch.js';
+import { secureFetch, validateUrl } from '../src/lib/secureFetch.js';
 import { configurarCors } from '../src/lib/cors.js';
 import { DOMAIN_RULES } from '../config/extractors.js';
 
@@ -12,7 +12,10 @@ const normalizeText = (value = '') =>
     .replace(/\n{3,}/g, '\n\n')
     .trim();
 
-const clampText = (value = '', max = 10000) => value.slice(0, max);
+// Los articulos largos (reportajes, discursos) superan con frecuencia los
+// 10 000 caracteres; truncarlos dejaba el boletin a medias.
+const MAX_TEXTO = 60000;
+const clampText = (value = '', max = MAX_TEXTO) => value.slice(0, max);
 
 const BOILERPLATE_START_MARKERS = [
   'Do Not Process My Personal Information',
@@ -84,43 +87,24 @@ const stripLeadingBoilerplate = (value = '') => {
 };
 
 const isErrorPage = (html = '', status = 200) => {
-  // Detecta páginas de error basándose en el contenido HTML
-  // Solo rechaza si está CLARAMENTE en modo error
+  // Solo rechaza paginas que declaren explicitamente un error. La heuristica
+  // anterior descartaba articulos cortos legitimos por su longitud.
   if (status >= 400) return true;
-  
+
   const htmlLower = html.toLowerCase();
-  
-  // Patrones MÁS ESPECÍFICOS que indican claramente una página de error
+
   const errorPatterns = [
-    // 404/403 explícitos
     /404\s+(not\s+found|page\s+not\s+found)/i,
     /403\s+(forbidden|access\s+denied)/i,
-    /<title>\s*404/i,
-    /<title>\s*403/i,
-    // Mensajes claros de error sin contenido
+    // Titulos como "Página 404" o "Error 404 - Medio" llegan con estado 200.
+    /<title>[^<]*\b(404|403)\b[^<]*<\/title>/i,
+    /p[aá]gina\s+no\s+encontrada|page\s+not\s+found/i,
     /^<html>\s*<head>\s*<title>\s*404/i,
     /^<html>\s*<head>\s*<title>\s*403/i,
-    // Página sin contenido (solo estructura)
-    /\[dlm_no_access\]/i,  // Drupal no access shortcode
+    /\[dlm_no_access\]/i, // Drupal no access shortcode
   ];
-  
-  // Si está en una lista de patrones claros, es un error
-  const isError = errorPatterns.some(pattern => pattern.test(htmlLower));
-  
-  // Protección adicional: si el HTML tiene MUY poco contenido de texto
-  // (menor a 200 caracteres sin tags) probablemente sea una página stub/error
-  if (!isError && html.replace(/<[^>]*>/g, '').trim().length < 150) {
-    // Pero si tiene contenido con palabras clave de artículo, no es error
-    if (/página de ejemplo|está diferente|permanecerá/i.test(htmlLower)) {
-      return false; // Es un artículo legítimo aunque corto
-    }
-    // Si tiene muy poco contenido Y patrones de error, rechaza
-    if (/sin resumen|sin acceso|no encontrado|error/i.test(htmlLower)) {
-      return true;
-    }
-  }
-  
-  return isError;
+
+  return errorPatterns.some((pattern) => pattern.test(htmlLower));
 };
 
 const cutAtMarker = (value = '', markers = []) => {
@@ -450,10 +434,28 @@ const extractFromJsonLd = ($) => {
 
 const getParagraphsFromNode = ($, node) => {
   const chunks = [];
+  const vistos = new Set();
 
-  node.find('p').each((_, element) => {
-    const paragraph = normalizeText($(element).text());
-    if (paragraph.length >= 20) chunks.push(paragraph);
+  const agregar = (texto) => {
+    const limpio = normalizeText(texto);
+    if (limpio.length < 20) return;
+    // Descarta bloques que son solo una URL.
+    if (/^(https?:\/\/|www\.)\S+$/i.test(limpio)) return;
+    if (vistos.has(limpio)) return;
+    vistos.add(limpio);
+    chunks.push(limpio);
+  };
+
+  node.find('p, blockquote').each((_, element) => {
+    agregar($(element).text());
+  });
+
+  // Algunos medios (p. ej. noticiaslatam.lat) publican cada parrafo dentro de
+  // un <div> sin <p>. Solo se toman bloques hoja para no duplicar contenido.
+  node.find('div').each((_, element) => {
+    const bloque = $(element);
+    if (bloque.find('p, div, blockquote, li').length > 0) return;
+    agregar(bloque.text());
   });
 
   return chunks;
@@ -466,19 +468,33 @@ const getMainContainer = ($, targetUrl = '') => {
   } catch {
     host = '';
   }
-  
-  const domainRule = Object.keys(DOMAIN_RULES).find(domain => host.includes(domain));
-  const selectorsToTry = (domainRule && DOMAIN_RULES[domainRule].contentSelectors) 
-    ? DOMAIN_RULES[domainRule].contentSelectors 
-    : CONTENT_SELECTORS;
-  
-  for (const selector of selectorsToTry) {
-    const candidate = $(selector).first();
-    if (!candidate.length) continue;
 
-    const paragraphs = getParagraphsFromNode($, candidate);
-    if (paragraphs.length >= 2) return candidate;
+  const domainRule = Object.keys(DOMAIN_RULES).find((domain) => host.includes(domain));
+  const selectorsToTry = (domainRule && DOMAIN_RULES[domainRule].contentSelectors)
+    ? DOMAIN_RULES[domainRule].contentSelectors
+    : CONTENT_SELECTORS;
+
+  // Se evaluan todos los candidatos y se elige el que aporta mas texto, en
+  // lugar del primero que tenga dos parrafos: una card de portada podia ganar
+  // frente al cuerpo real del articulo.
+  let mejor = null;
+  let mejorLongitud = 0;
+
+  for (const selector of selectorsToTry) {
+    const nodos = $(selector).slice(0, 5);
+
+    nodos.each((_, element) => {
+      const candidato = $(element);
+      const parrafos = getParagraphsFromNode($, candidato);
+      const longitud = parrafos.reduce((total, parrafo) => total + parrafo.length, 0);
+      if (parrafos.length > 0 && longitud > mejorLongitud) {
+        mejor = candidato;
+        mejorLongitud = longitud;
+      }
+    });
   }
+
+  if (mejor && mejorLongitud >= 200) return mejor;
 
   const body = $('body').first();
   return body.length ? body : $.root();
@@ -512,6 +528,178 @@ const emptyResponse = (res) => res.status(200).json({
   urlCanonica: '',
 });
 
+// ---------------------------------------------------------------------------
+// Resolucion de enlaces de Google News
+// ---------------------------------------------------------------------------
+// Los feeds configurados con "site:" devuelven URLs del redireccionador
+// news.google.com/rss/articles/... La pagina intermedia expone data-n-a-id,
+// data-n-a-ts y data-n-a-sg; con ellos el endpoint batchexecute devuelve la URL
+// real del medio. Sin este paso la extraccion devolvia 0 caracteres.
+const CACHE_GOOGLE_TTL_MS = 6 * 60 * 60 * 1000;
+const MAX_CACHE_GOOGLE = 500;
+const cacheGoogleNews = new Map();
+
+const esUrlGoogleNews = (value) => {
+  try {
+    return new URL(value).hostname.toLowerCase() === 'news.google.com';
+  } catch {
+    return false;
+  }
+};
+
+const leerCacheGoogle = (url) => {
+  const entrada = cacheGoogleNews.get(url);
+  if (!entrada) return '';
+  if (Date.now() - entrada.ts > CACHE_GOOGLE_TTL_MS) {
+    cacheGoogleNews.delete(url);
+    return '';
+  }
+  return entrada.destino;
+};
+
+const guardarCacheGoogle = (url, destino) => {
+  if (cacheGoogleNews.size >= MAX_CACHE_GOOGLE) {
+    cacheGoogleNews.delete(cacheGoogleNews.keys().next().value);
+  }
+  cacheGoogleNews.set(url, { ts: Date.now(), destino });
+};
+
+// Descarta destinos que no son la pagina de un articulo: portadas, listados de
+// seccion, formularios de correo y descargas (PDF de ediciones impresas).
+const esDestinoArticulo = (destino = '') => {
+  try {
+    const url = new URL(destino);
+    if (!url.pathname || url.pathname === '/') return false;
+    if (/\/component\/mailto\b/i.test(url.pathname)) return false;
+    if (/\/category\//i.test(url.pathname)) return false;
+    if (/[?&]download=/i.test(url.search)) return false;
+
+    // Joomla publica los listados de seccion como /index.php/es/cultura sin el
+    // identificador numerico que llevan las notas reales.
+    if (/\/index\.php\//i.test(url.pathname)) {
+      const ultimoSegmento = url.pathname.replace(/\/+$/, '').split('/').pop() || '';
+      if (!/\d/.test(ultimoSegmento)) return false;
+    }
+
+    return true;
+  } catch {
+    return false;
+  }
+};
+
+const extraerDestinoBatchexecute = (cuerpo = '') => {
+  const inicio = cuerpo.indexOf('[[');
+  if (inicio < 0) return '';
+
+  let datos;
+  try {
+    datos = JSON.parse(cuerpo.slice(inicio));
+  } catch {
+    return '';
+  }
+
+  if (!Array.isArray(datos)) return '';
+
+  for (const fila of datos) {
+    if (!Array.isArray(fila)) continue;
+    for (const celda of fila) {
+      if (typeof celda !== 'string' || !celda.trim().startsWith('[')) continue;
+      try {
+        const anidado = JSON.parse(celda);
+        if (
+          Array.isArray(anidado) &&
+          typeof anidado[1] === 'string' &&
+          /^https?:\/\//i.test(anidado[1])
+        ) {
+          return anidado[1];
+        }
+      } catch {
+        // La celda no contiene el JSON esperado.
+      }
+    }
+  }
+
+  return '';
+};
+
+const leerCandidatosGoogle = async (targetUrl, tiempoEsperaMs) => {
+  try {
+    const { body: html } = await secureFetch(targetUrl, { tiempoEsperaMs });
+    const $ = cheerio.load(html);
+    const candidatos = [];
+
+    $('[data-n-a-id][data-n-a-ts][data-n-a-sg]').each((_, elemento) => {
+      const id = $(elemento).attr('data-n-a-id');
+      const ts = $(elemento).attr('data-n-a-ts');
+      const sg = $(elemento).attr('data-n-a-sg');
+      if (id && ts && sg) candidatos.push({ id, ts, sg });
+    });
+
+    return candidatos;
+  } catch {
+    return [];
+  }
+};
+
+export const resolverUrlGoogleNews = async (targetUrl) => {
+  if (!esUrlGoogleNews(targetUrl)) return targetUrl;
+
+  const enCache = leerCacheGoogle(targetUrl);
+  if (enCache) return enCache;
+
+  try {
+    // El redireccionador de Google puede tardar varios segundos en servir la
+    // pagina intermedia; el presupuesto total sigue bajo el limite de Vercel.
+    let candidatos = await leerCandidatosGoogle(targetUrl, 15000);
+
+    // En ocasiones Google sirve una variante sin los atributos de resolucion.
+    // Un segundo intento con menos presupuesto recupera esos casos sin
+    // acercarse al limite de la funcion.
+    if (!candidatos.length) {
+      candidatos = await leerCandidatosGoogle(targetUrl, 10000);
+    }
+
+    for (const { id, ts, sg } of candidatos) {
+      const inner = JSON.stringify([
+        'garturlreq',
+        [['X', 'X', ['X', 'X'], null, null, 1, 1, 'US:en', null, 1, null, null, null, null, null, 0, 1], 'X', 'X', 1, [1, 1, 1], 1, 1, null, 0, 0, null, 0],
+        id,
+        Number(ts),
+        sg,
+      ]);
+      const frecuencia = JSON.stringify([[['Fbv4je', inner]]]);
+
+      try {
+        const { body } = await secureFetch('https://news.google.com/_/DotsSplashUi/data/batchexecute', {
+          metodo: 'POST',
+          cabeceras: {
+            'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8',
+            Accept: '*/*',
+          },
+          cuerpo: `f.req=${encodeURIComponent(frecuencia)}`,
+          tiempoEsperaMs: 10000,
+          maxBytes: 512 * 1024,
+        });
+
+        const destino = extraerDestinoBatchexecute(body);
+        if (!destino) continue;
+
+        // El destino resuelto tambien debe pertenecer a la allowlist.
+        const validada = validateUrl(destino);
+        if (!esDestinoArticulo(validada.href)) continue;
+        guardarCacheGoogle(targetUrl, validada.href);
+        return validada.href;
+      } catch {
+        // Probar con el siguiente candidato.
+      }
+    }
+  } catch {
+    // Sin resolucion no se puede extraer el articulo.
+  }
+
+  return '';
+};
+
 const extractUsingReadableProxy = async (targetUrl) => {
   try {
     const cleanTarget = targetUrl.replace(/^https?:\/\//i, '');
@@ -521,9 +709,15 @@ const extractUsingReadableProxy = async (targetUrl) => {
         'User-Agent': 'Mozilla/5.0 (compatible; NewsAppScraper/1.0)',
         Accept: 'text/plain',
       },
+      signal: AbortSignal.timeout(12000),
     });
 
     if (!response.ok) return { texto: '', metodo: '' };
+
+    // El proxy puede devolver respuestas enormes; se corta antes de procesar.
+    const longitud = Number(response.headers.get('content-length') || 0);
+    if (longitud > 4 * 1024 * 1024) return { texto: '', metodo: '' };
+
     const rawText = await response.text();
     const plainText = cleanupProxyText(targetUrl, rawText);
     return { texto: plainText.length >= 220 ? plainText : '', metodo: 'jina-proxy' };
@@ -553,42 +747,59 @@ export default async function handler(req, res) {
     return emptyResponse(res);
   }
 
+  // Los enlaces de Google News se resuelven a la URL real del medio. Sin este
+  // paso el fetch devuelve una pagina intermedia sin articulo.
   try {
-    const response = await fetch(targetUrl, {
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (compatible; NewsAppScraper/1.0)',
-        Accept: 'text/html,application/xhtml+xml',
-        'Accept-Language': 'es-ES,es;q=0.9,en;q=0.8',
-      },
+    const resuelta = await resolverUrlGoogleNews(targetUrl);
+    if (!resuelta) {
+      res.setHeader('Cache-Control', 's-maxage=300');
+      return emptyResponse(res);
+    }
+    targetUrl = resuelta;
+  } catch {
+    res.setHeader('Cache-Control', 's-maxage=300');
+    return emptyResponse(res);
+  }
+
+  const responderProxy = (proxyResult) => {
+    res.setHeader('Cache-Control', 's-maxage=3600, stale-while-revalidate=86400');
+    return res.status(200).json({
+      cuerpo: clampText(proxyResult.texto),
+      metodo: proxyResult.metodo,
+      calidad: 'media',
+      autor: '',
+      titulo: '',
+      fecha: '',
+      imagen: '',
+      urlCanonica: '',
     });
+  };
 
-    if (!response.ok) {
+  let html;
+  try {
+    // secureFetch aplica allowlist, validacion DNS/IP, redirecciones, limites
+    // de tamano y timeout: evita SSRF y respuestas sin acotar.
+    const respuesta = await secureFetch(targetUrl, {
+      tiempoEsperaMs: 12000,
+      maxBytes: 3 * 1024 * 1024,
+    });
+    html = respuesta.body;
+
+    if (!html || isErrorPage(html, respuesta.statusCode)) {
       const proxyResult = await extractUsingReadableProxy(targetUrl);
-      if (proxyResult.texto) {
-        res.setHeader('Cache-Control', 's-maxage=3600, stale-while-revalidate=86400');
-        return res.status(200).json({ 
-          cuerpo: clampText(proxyResult.texto),
-          metodo: proxyResult.metodo,
-          calidad: 'media',
-          autor: '',
-          titulo: '',
-          fecha: '',
-          imagen: '',
-          urlCanonica: '',
-        });
-      }
+      if (proxyResult.texto) return responderProxy(proxyResult);
       res.setHeader('Cache-Control', 's-maxage=300');
       return emptyResponse(res);
     }
+  } catch {
+    // Fallback para fuentes que rechazan la peticion directa (WAF, TLS, etc.).
+    const proxyResult = await extractUsingReadableProxy(targetUrl);
+    if (proxyResult.texto) return responderProxy(proxyResult);
+    res.setHeader('Cache-Control', 's-maxage=300');
+    return emptyResponse(res);
+  }
 
-    const html = await response.text();
-    
-    // Valida que no sea una página de error
-    if (isErrorPage(html, response.status)) {
-      res.setHeader('Cache-Control', 's-maxage=300');
-      return emptyResponse(res);
-    }
-
+  try {
     const $ = cheerio.load(html);
 
     // Extrae metadatos de JSON-LD si están disponibles

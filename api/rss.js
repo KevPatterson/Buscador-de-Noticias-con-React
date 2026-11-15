@@ -61,6 +61,35 @@ const pickImage = (item) => {
   return null;
 };
 
+// Portadas y secciones no son articulos: sus enlaces acaban generando
+// "noticias" con el menu completo del sitio.
+const TITULOS_NO_PERIODISTICOS = /^(inicio\b.*|home|portada|noticias|actualidad|contacto|qui[eé]nes somos|qui[eé]n somos|secciones|men[uú]|suscriptores|hemos dicho|p[aá]gina de ejemplo|sin acceso|ediciones impresas|ediciones en pdf|pol[ií]tica de privacidad|aviso legal)$/i;
+// Formularios de "compartir por correo" que algunos gestores publican como
+// entradas y Google News llega a indexar como si fueran articulos.
+const TITULOS_COMPARTIR = /^(env[ií]e|enviar|comparta|compartir|send|share)\b[^]{0,40}\b(correo|email|amigo|friend|enlace|link)\b/i;
+// Colecciones de PDF de la edicion impresa que algunos medios publican como
+// entradas del feed y no son noticias.
+const TITULOS_COLECCION_PDF = /^ediciones en pdf\b/i;
+// Paginas fijas de WordPress y gestores que aparecen en los feeds con la misma
+// pinta que una noticia (pagina de ejemplo, aviso legal, ediciones impresas).
+const RUTAS_NO_PERIODISTICAS = /\/(pagina-ejemplo|sample-page|sin-acceso|ediciones-impresas|politica-de-privacidad|politica-privacidad|aviso-legal)\/?$/i;
+
+const esEnlaceNoPeriodistico = (link, title = '') => {
+  if (!link) return true;
+  const titulo = String(title).trim();
+  if (TITULOS_NO_PERIODISTICOS.test(titulo) || TITULOS_COMPARTIR.test(titulo) || TITULOS_COLECCION_PDF.test(titulo)) return true;
+
+  try {
+    const url = new URL(link);
+    if (url.pathname === '/' || url.pathname === '') return true;
+    if (/\/component\/mailto\b/i.test(url.pathname)) return true;
+    if (RUTAS_NO_PERIODISTICAS.test(url.pathname)) return true;
+    return false;
+  } catch {
+    return true;
+  }
+};
+
 // Cache en memoria por feed: la rama RSS de /api/news consulta todos los feeds
 // en cada request, lo que multiplica latencia y peticiones salientes. TTL corto
 // porque las noticias son frescas; en Vercel la memoria es por instancia, asi
@@ -138,6 +167,7 @@ export const fetchFeed = async (feedUrl, config = {}) => {
   const results = itemArray
     .filter(item => {
       const link = pickLink(item);
+      if (esEnlaceNoPeriodistico(link, pickText(item?.title))) return false;
       return !shouldExcludeUrl(link);
     })
     .slice(0, 20)

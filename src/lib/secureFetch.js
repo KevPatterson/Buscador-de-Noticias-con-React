@@ -45,36 +45,89 @@ const estaEnRango = (numero, inicio, fin) => numero >= inicio && numero <= fin;
 
 const esIpv4Bloqueada = (ip) => {
   const partes = ip.split('.');
-  if (partes.length !== 4 || partes.some((parte) => Number.isNaN(Number.parseInt(parte, 10)))) return false;
+  if (
+    partes.length !== 4 ||
+    partes.some((parte) => {
+      const numero = Number.parseInt(parte, 10);
+      return Number.isNaN(numero) || numero < 0 || numero > 255;
+    })
+  ) {
+    return false;
+  }
   const numero = ipv4ANumero(ip);
   return (
     // 0.0.0.0/8 (incluye 0.0.0.0)
     estaEnRango(numero, 0x00000000, 0x00FFFFFF) ||
     // 10.0.0.0/8
     estaEnRango(numero, 0x0A000000, 0x0AFFFFFF) ||
+    // 100.64.0.0/10 (CGNAT compartido)
+    estaEnRango(numero, 0x64400000, 0x647FFFFF) ||
     // 127.0.0.0/8 (loopback)
     estaEnRango(numero, 0x7F000000, 0x7FFFFFFF) ||
     // 169.254.0.0/16 (link-local, incluye metadata de nube 169.254.169.254)
     estaEnRango(numero, 0xA9FE0000, 0xA9FEFFFF) ||
     // 172.16.0.0/12
     estaEnRango(numero, 0xAC100000, 0xAC1FFFFF) ||
+    // 192.0.0.0/24 (asignaciones especiales)
+    estaEnRango(numero, 0xC0000000, 0xC00000FF) ||
+    // 192.0.2.0/24 (documentacion)
+    estaEnRango(numero, 0xC0000200, 0xC00002FF) ||
     // 192.168.0.0/16
-    estaEnRango(numero, 0xC0A80000, 0xC0A8FFFF)
+    estaEnRango(numero, 0xC0A80000, 0xC0A8FFFF) ||
+    // 198.18.0.0/15 (benchmarking)
+    estaEnRango(numero, 0xC6120000, 0xC613FFFF) ||
+    // 198.51.100.0/24 (documentacion)
+    estaEnRango(numero, 0xC6336400, 0xC63364FF) ||
+    // 203.0.113.0/24 (documentacion)
+    estaEnRango(numero, 0xCB007100, 0xCB0071FF) ||
+    // 224.0.0.0/4 (multicast)
+    estaEnRango(numero, 0xE0000000, 0xEFFFFFFF) ||
+    // 240.0.0.0/4 (reservado) y 255.255.255.255 (broadcast)
+    estaEnRango(numero, 0xF0000000, 0xFFFFFFFF)
   );
 };
 
-const esIpv6Bloqueada = (ip) => {
+// Convierte una IPv6 con IPv4 embebida (::ffff:127.0.0.1 o ::ffff:7f00:1)
+// a su representacion IPv4 para reutilizar el bloqueo de rangos.
+const ipv4DesdeIpv6Mapeada = (ip) => {
   const lower = String(ip).toLowerCase();
-  if (lower === '::1') return true; // loopback IPv6
+  if (!lower.startsWith('::ffff:')) return '';
+
+  const resto = lower.slice('::ffff:'.length);
+  if (resto.includes('.')) return resto;
+
+  const grupos = resto.split(':');
+  if (grupos.length !== 2) return '';
+  const [alto, bajo] = grupos.map((grupo) => Number.parseInt(grupo, 16));
+  if (!Number.isInteger(alto) || !Number.isInteger(bajo)) return '';
+
+  return [alto >> 8, alto & 0xff, bajo >> 8, bajo & 0xff].join('.');
+};
+
+const esIpv6Bloqueada = (ip) => {
+  const lower = String(ip).toLowerCase().replace(/^\[|\]$/g, '');
+
+  // IPv4 embebida: se valida contra los mismos rangos que IPv4.
+  const mapeada = ipv4DesdeIpv6Mapeada(lower);
+  if (mapeada) return esIpv4Bloqueada(mapeada);
+
+  if (lower === '::' || lower === '::1') return true; // no especificada y loopback
   // fc00::/7 direcciones unicast de ambito local
   if (lower.startsWith('fc') || lower.startsWith('fd')) return true;
   // fe80::/10 direcciones de enlace local
-  return ['fe8', 'fe9', 'fea', 'feb'].some((prefijo) => lower.startsWith(prefijo));
+  if (['fe8', 'fe9', 'fea', 'feb'].some((prefijo) => lower.startsWith(prefijo))) return true;
+  // ff00::/8 multicast
+  if (lower.startsWith('ff')) return true;
+  // 64:ff9b::/96 (NAT64)
+  if (lower.startsWith('64:ff9b:')) return true;
+
+  return false;
 };
 
 export const esIpBloqueada = (ip) => {
   if (typeof ip !== 'string' || !ip) return false;
-  return ip.includes(':') ? esIpv6Bloqueada(ip) : esIpv4Bloqueada(ip);
+  const limpia = ip.replace(/^\[|\]$/g, '');
+  return limpia.includes(':') ? esIpv6Bloqueada(limpia) : esIpv4Bloqueada(limpia);
 };
 
 export class SecureFetchError extends Error {
@@ -168,14 +221,21 @@ const MAXIMO_BYTES = 2 * 1024 * 1024;
 const MAXIMO_REDIRECTS = 3;
 const USUARIO_AGENTE = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36';
 
-const MIMES_PERMITIDOS = ['text/html', 'application/xhtml+xml', 'application/xml', 'text/xml', 'application/rss+xml'];
+const MIMES_PERMITIDOS = [
+  'text/html',
+  'application/xhtml+xml',
+  'application/xml',
+  'text/xml',
+  'application/rss+xml',
+  'application/json',
+  'text/plain',
+];
 
 const cabeceraBasica = (hostname) => ({
   'User-Agent': USUARIO_AGENTE,
   Accept: 'text/html,application/xhtml+xml,application/xml,text/xml;q=0.9,*/*;q=0.8',
   'Accept-Language': 'es-ES,es;q=0.9,en;q=0.8',
   Host: hostname,
-  Connection: 'close',
 });
 
 const detectarCharset = (buffer, contentType) => {
@@ -224,10 +284,16 @@ export const secureFetch = async (input, opciones = {}) => {
     tiempoEsperaMs = TIEMPO_ESPERA_MS,
     maxBytes = MAXIMO_BYTES,
     senalExterna,
+    metodo = 'GET',
+    cuerpo,
+    cabeceras = {},
+    mimesPermitidos = MIMES_PERMITIDOS,
   } = opciones;
   const urlInicial = validateUrl(input);
   let urlActual = urlInicial;
   let saltos = 0;
+  let metodoActual = String(metodo || 'GET').toUpperCase();
+  let cuerpoActual = cuerpo;
 
   // Un solo temporizador para toda la operacion, incluidas las redirecciones y
   // la lectura del cuerpo: el timeout es un presupuesto total por fuente y no
@@ -245,43 +311,27 @@ export const secureFetch = async (input, opciones = {}) => {
 
   try {
     for (;;) {
-      const info = await resolveHost(urlActual.hostname);
-      const ip = info.address;
+      // Resuelve y valida la IP antes de cada salto (bloquea rangos privados).
+      await resolveHost(urlActual.hostname);
 
-      // Se conecta a la IP ya validada para evitar DNS rebinding.
-      // - HTTP: se usa la IP como host con la cabecera Host original.
-      // - HTTPS: se usa el hostname, ya que la verificacion TLS autentica el destino
-      //   y el DNS se valido inmediatamente antes de conectar.
-      const urlConIp = new URL(urlActual.href);
-      urlConIp.hostname = ip.includes(':') ? `[${ip}]` : ip;
+      const cabecerasPeticion = { ...cabeceraBasica(urlActual.hostname), ...cabeceras };
+      const opcionesFetch = {
+        method: metodoActual,
+        headers: cabecerasPeticion,
+        signal: senal,
+        redirect: 'manual',
+      };
+      if (cuerpoActual !== undefined && metodoActual !== 'GET' && metodoActual !== 'HEAD') {
+        opcionesFetch.body = cuerpoActual;
+      }
 
-      const cabeceras = cabeceraBasica(urlActual.hostname);
-      const esHttps = urlActual.protocol === 'https:';
       let respuesta;
 
       try {
-        if (esHttps) {
-          respuesta = await fetch(urlActual.toString(), {
-            headers: cabeceras,
-            signal: senal,
-            redirect: 'manual',
-          });
-        } else {
-          try {
-            respuesta = await fetch(urlConIp.toString(), {
-              headers: cabeceras,
-              signal: senal,
-              redirect: 'manual',
-            });
-          } catch {
-            // Si el servidor no responde a la peticion por IP, se reintenta por hostname.
-            respuesta = await fetch(urlActual.toString(), {
-              headers: cabeceras,
-              signal: senal,
-              redirect: 'manual',
-            });
-          }
-        }
+        // Se usa el hostname (no la IP) para evitar bucles de redireccion en
+        // servidores que canonicalizan el Host. El DNS ya se valido y la
+        // allowlist restringe los destinos posibles.
+        respuesta = await fetch(urlActual.toString(), opcionesFetch);
       } catch (error) {
         if (error.name === 'AbortError') throw new SecureFetchError(504, 'Tiempo de espera agotado al conectar');
         throw new SecureFetchError(502, 'No se pudo acceder a la fuente');
@@ -296,16 +346,21 @@ export const secureFetch = async (input, opciones = {}) => {
           throw new SecureFetchError(400, 'Redireccion invalida');
         }
         const siguienteUrl = new URL(ubicacion, urlActual);
-        // Algunos servidores responden con un Location absoluto usando la IP de
-        // conexion. En ese caso se restaura el hostname original ya validado.
-        if (siguienteUrl.hostname === ip) {
-          siguienteUrl.hostname = urlActual.hostname;
-        }
         if (!isHostAllowed(siguienteUrl.hostname.toLowerCase())) {
           throw new SecureFetchError(403, 'La redireccion apunta a un dominio no permitido');
         }
         // Revalida dominio e IP en cada salto para evitar DNS rebinding encadenado.
         await validarDestinoSeguro(siguienteUrl.href);
+        // 303 y (301/302 con cuerpo) cambian a GET segun la semantica de fetch.
+        if (
+          respuesta.status === 303 ||
+          ((respuesta.status === 301 || respuesta.status === 302) &&
+            metodoActual !== 'GET' &&
+            metodoActual !== 'HEAD')
+        ) {
+          metodoActual = 'GET';
+          cuerpoActual = undefined;
+        }
         urlActual = siguienteUrl;
         saltos += 1;
         continue;
@@ -317,7 +372,8 @@ export const secureFetch = async (input, opciones = {}) => {
 
       const contentType = (respuesta.headers.get('content-type') || '').toLowerCase();
       const mime = contentType.split(';')[0].trim();
-      const mimePermitido = MIMES_PERMITIDOS.includes(mime) || mime.endsWith('/rss') || mime.endsWith('+xml');
+      const mimePermitido =
+        mimesPermitidos.includes(mime) || mime.endsWith('/rss') || mime.endsWith('+xml');
       if (!mimePermitido) {
         throw new SecureFetchError(400, 'Tipo de contenido no permitido');
       }
