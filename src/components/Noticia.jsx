@@ -17,6 +17,7 @@ import {
     Typography,
 } from '@mui/material';
 import CircularProgress from '@mui/material/CircularProgress';
+import useImagenFallback from '../hooks/useImagenFallback';
 
 const ContentCopyIcon = (props) => (
     <SvgIcon {...props}>
@@ -89,7 +90,12 @@ const Noticia = ({ noticia, vista, index = 0, selectedNews = [], onToggleSelect,
     const source = noticia.source_id || 'Fuente desconocida';
     const url = noticia.link || '#';
     const imageUrl = noticia.image_url;
-    const mostrarImagen = esImagenSegura(imageUrl) && !errorImagen;
+    // Si el feed no trae imagen (o su host esta bloqueado), se resuelve
+    // og:image de forma diferida al entrar la card en el viewport.
+    const imagenFeedValida = esImagenSegura(imageUrl) ? imageUrl : '';
+    const [imagenFallback, refImagen] = useImagenFallback({ link: noticia.link, imageUrl: imagenFeedValida });
+    const imagenResuelta = imagenFeedValida || imagenFallback;
+    const mostrarImagen = esImagenSegura(imagenResuelta) && !errorImagen;
     const fecha = formatDate(noticia.pubDate);
     const fechaRelativa = formatRelativeDate(noticia.pubDate);
     const fuenteCubana = esFuenteCubana(url);
@@ -126,6 +132,7 @@ const Noticia = ({ noticia, vista, index = 0, selectedNews = [], onToggleSelect,
         return (
             <Grid item xs={12}>
                 <Box
+                    ref={refImagen}
                     className="list-news-item"
                     sx={{
                         display: 'flex',
@@ -207,6 +214,7 @@ const Noticia = ({ noticia, vista, index = 0, selectedNews = [], onToggleSelect,
     return (
         <Grid item xs={12} sm={6} md={4} sx={{ perspective: '1200px' }}>
             <Card
+                ref={refImagen}
                 className="card-entrada"
                 sx={{
                     height: '100%',
@@ -238,7 +246,7 @@ const Noticia = ({ noticia, vista, index = 0, selectedNews = [], onToggleSelect,
                     <CardMedia
                         component="img"
                         height="180"
-                        image={imageUrl}
+                        image={imagenResuelta}
                         alt={`Imagen de la noticia ${title}`}
                         onError={() => setErrorImagen(true)}
                         sx={{ aspectRatio: '16/9', objectFit: 'cover' }}
