@@ -8,6 +8,12 @@ import { dedupeNoticias } from '../src/lib/dedupe.js';
 // y la cascada continua con la siguiente fuente en vez de colgar la request.
 const TIEMPO_ESPERA_API_MS = 5000;
 
+// Presupuesto global de la rama RSS: con 29 feeds en paralelo, el peor caso lo
+// marca el feed mas lento. Al agotarse el presupuesto se devuelven los
+// resultados ya recibidos. 8.5s deja margen bajo el limite de 10s de Vercel
+// incluso si la configuracion de maxDuration no se aplicara.
+const PRESUPUESTO_RSS_MS = 8500;
+
 
 const NEWSDATA_BASE = 'https://newsdata.io/api/1/news';
 const THENEWSAPI_BASE = 'https://api.thenewsapi.com/v1/news/all';
@@ -190,7 +196,9 @@ const obtenerNewsAPI = async ({ query, categoria, pagina, domainurl }) => {
 // Deduplica en el servidor para que la paginacion sea coherente con lo que ve
 // el cliente. El dedupe del cliente se mantiene como red de seguridad.
 const responder = (res, payload, meta) => {
-  res.setHeader('Cache-Control', 's-maxage=60');
+  // stale-while-revalidate permite servir la copia cacheada mientras el CDN
+  // revalida en segundo plano; reduce los arranques en frio con trafico real.
+  res.setHeader('Cache-Control', 's-maxage=60, stale-while-revalidate=300');
   return res.status(200).json({
     status: 'ok',
     ...payload,
@@ -286,14 +294,41 @@ export default async function handler(req, res) {
   }
 
   const inicioRss = Date.now();
-  const todos = (
-    await Promise.all(
-      fuentesObjetivo.map((fuenteRSS) =>
-        fetchFeed(fuenteRSS.feed, fuenteRSS).then((d) => d.results || []).catch(() => [])
-      )
-    )
-  ).flat();
-  intentos.rss = { ok: true, ms: Date.now() - inicioRss };
+  const controladorRss = new AbortController();
+  // Los resultados se acumulan a medida que llegan: si el presupuesto vence,
+  // se devuelve lo ya recibido en lugar de descartar toda la rama.
+  const acumuladoRss = [];
+  let resolverLimite;
+  const limiteRss = new Promise((resolve) => {
+    resolverLimite = resolve;
+  });
+
+  const temporizadorRss = setTimeout(() => {
+    controladorRss.abort();
+    resolverLimite('limite');
+  }, PRESUPUESTO_RSS_MS);
+
+  let rssParcial = false;
+  const tareasRss = fuentesObjetivo.map((fuenteRSS) =>
+    fetchFeed(fuenteRSS.feed, { ...fuenteRSS, senal: controladorRss.signal })
+      .then((d) => {
+        if (d.results?.length) acumuladoRss.push(...d.results);
+      })
+      .catch(() => {})
+  );
+
+  try {
+    const ganador = await Promise.race([
+      Promise.all(tareasRss).then(() => 'completo'),
+      limiteRss,
+    ]);
+    rssParcial = ganador === 'limite';
+  } finally {
+    clearTimeout(temporizadorRss);
+  }
+
+  const todos = acumuladoRss.slice();
+  intentos.rss = { ok: true, ms: Date.now() - inicioRss, parcial: rssParcial };
 
   let resultados = todos;
   if (query) {

@@ -49,7 +49,7 @@ const esIpv4Bloqueada = (ip) => {
   const numero = ipv4ANumero(ip);
   return (
     // 0.0.0.0/8 (incluye 0.0.0.0)
-    estaEnRango(numero, 0x00000000, 0x0FFFFFFF) ||
+    estaEnRango(numero, 0x00000000, 0x00FFFFFF) ||
     // 10.0.0.0/8
     estaEnRango(numero, 0x0A000000, 0x0AFFFFFF) ||
     // 127.0.0.0/8 (loopback)
@@ -126,10 +126,28 @@ export const validarDestinoSeguro = async (input) => {
   return url;
 };
 
+// Limita una promesa con un temporizador que se limpia al resolver o fallar.
+const conLimite = (promesa, tiempoEsperaMs, mensaje) =>
+  new Promise((resolve, reject) => {
+    const temporizador = setTimeout(() => reject(new Error(mensaje)), tiempoEsperaMs);
+    promesa.then(
+      (valor) => {
+        clearTimeout(temporizador);
+        resolve(valor);
+      },
+      (error) => {
+        clearTimeout(temporizador);
+        reject(error);
+      }
+    );
+  });
+
 export const resolveHost = async (hostname) => {
   let info;
   try {
-    info = await dnsLookup(hostname, { all: false });
+    // El DNS nativo no es cancelable: sin limite, un resolver colgado puede
+    // bloquear la funcion mucho mas alla del timeout de la peticion HTTP.
+    info = await conLimite(dnsLookup(hostname, { all: false }), 2500, 'DNS_TIMEOUT');
   } catch {
     throw new SecureFetchError(502, 'No se pudo resolver el dominio');
   }
@@ -201,100 +219,119 @@ const leerCuerpoLimitado = async (response, maxBytes) => {
 };
 
 export const secureFetch = async (input, opciones = {}) => {
-  const { maxRedirects = MAXIMO_REDIRECTS, tiempoEsperaMs = TIEMPO_ESPERA_MS, maxBytes = MAXIMO_BYTES } = opciones;
+  const {
+    maxRedirects = MAXIMO_REDIRECTS,
+    tiempoEsperaMs = TIEMPO_ESPERA_MS,
+    maxBytes = MAXIMO_BYTES,
+    senalExterna,
+  } = opciones;
   const urlInicial = validateUrl(input);
   let urlActual = urlInicial;
   let saltos = 0;
 
-  for (;;) {
-    const info = await resolveHost(urlActual.hostname);
-    const ip = info.address;
+  // Un solo temporizador para toda la operacion, incluidas las redirecciones y
+  // la lectura del cuerpo: el timeout es un presupuesto total por fuente y no
+  // se reinicia en cada salto.
+  const controlador = new AbortController();
+  const temporizador = setTimeout(() => controlador.abort(), tiempoEsperaMs);
+  // Permite que el llamador imponga un presupuesto global (por ejemplo, la
+  // rama RSS de /api/news) sin esperar al timeout individual de cada feed.
+  const abortarPorSenalExterna = () => controlador.abort();
+  if (senalExterna) {
+    if (senalExterna.aborted) controlador.abort();
+    else senalExterna.addEventListener('abort', abortarPorSenalExterna, { once: true });
+  }
+  const senal = controlador.signal;
 
-    // Se conecta a la IP ya validada para evitar DNS rebinding.
-    // - HTTP: se usa la IP como host con la cabecera Host original.
-    // - HTTPS: se usa el hostname, ya que la verificacion TLS autentica el destino
-    //   y el DNS se valido inmediatamente antes de conectar.
-    const urlConIp = new URL(urlActual.href);
-    urlConIp.hostname = ip.includes(':') ? `[${ip}]` : ip;
+  try {
+    for (;;) {
+      const info = await resolveHost(urlActual.hostname);
+      const ip = info.address;
 
-    const cabeceras = cabeceraBasica(urlActual.hostname);
-    const esHttps = urlActual.protocol === 'https:';
-    let respuesta;
-    const controlador = new AbortController();
-    const temporizador = setTimeout(() => controlador.abort(), tiempoEsperaMs);
+      // Se conecta a la IP ya validada para evitar DNS rebinding.
+      // - HTTP: se usa la IP como host con la cabecera Host original.
+      // - HTTPS: se usa el hostname, ya que la verificacion TLS autentica el destino
+      //   y el DNS se valido inmediatamente antes de conectar.
+      const urlConIp = new URL(urlActual.href);
+      urlConIp.hostname = ip.includes(':') ? `[${ip}]` : ip;
 
-    try {
-      if (esHttps) {
-        respuesta = await fetch(urlActual.toString(), {
-          headers: cabeceras,
-          signal: controlador.signal,
-          redirect: 'manual',
-        });
-      } else {
-        try {
-          respuesta = await fetch(urlConIp.toString(), {
-            headers: cabeceras,
-            signal: controlador.signal,
-            redirect: 'manual',
-          });
-        } catch {
-          // Si el servidor no responde a la peticion por IP, se reintenta por hostname.
+      const cabeceras = cabeceraBasica(urlActual.hostname);
+      const esHttps = urlActual.protocol === 'https:';
+      let respuesta;
+
+      try {
+        if (esHttps) {
           respuesta = await fetch(urlActual.toString(), {
             headers: cabeceras,
-            signal: controlador.signal,
+            signal: senal,
             redirect: 'manual',
           });
+        } else {
+          try {
+            respuesta = await fetch(urlConIp.toString(), {
+              headers: cabeceras,
+              signal: senal,
+              redirect: 'manual',
+            });
+          } catch {
+            // Si el servidor no responde a la peticion por IP, se reintenta por hostname.
+            respuesta = await fetch(urlActual.toString(), {
+              headers: cabeceras,
+              signal: senal,
+              redirect: 'manual',
+            });
+          }
         }
+      } catch (error) {
+        if (error.name === 'AbortError') throw new SecureFetchError(504, 'Tiempo de espera agotado al conectar');
+        throw new SecureFetchError(502, 'No se pudo acceder a la fuente');
       }
-    } catch (error) {
-      clearTimeout(temporizador);
-      if (error.name === 'AbortError') throw new SecureFetchError(504, 'Tiempo de espera agotado al conectar');
-      throw new SecureFetchError(502, 'No se pudo acceder a la fuente');
-    } finally {
-      clearTimeout(temporizador);
-    }
 
-    if (respuesta.status >= 300 && respuesta.status < 400 && respuesta.status !== 304) {
-      if (saltos >= maxRedirects) {
-        throw new SecureFetchError(400, 'Demasiadas redirecciones');
+      if (respuesta.status >= 300 && respuesta.status < 400 && respuesta.status !== 304) {
+        if (saltos >= maxRedirects) {
+          throw new SecureFetchError(400, 'Demasiadas redirecciones');
+        }
+        const ubicacion = respuesta.headers.get('location');
+        if (!ubicacion) {
+          throw new SecureFetchError(400, 'Redireccion invalida');
+        }
+        const siguienteUrl = new URL(ubicacion, urlActual);
+        // Algunos servidores responden con un Location absoluto usando la IP de
+        // conexion. En ese caso se restaura el hostname original ya validado.
+        if (siguienteUrl.hostname === ip) {
+          siguienteUrl.hostname = urlActual.hostname;
+        }
+        if (!isHostAllowed(siguienteUrl.hostname.toLowerCase())) {
+          throw new SecureFetchError(403, 'La redireccion apunta a un dominio no permitido');
+        }
+        // Revalida dominio e IP en cada salto para evitar DNS rebinding encadenado.
+        await validarDestinoSeguro(siguienteUrl.href);
+        urlActual = siguienteUrl;
+        saltos += 1;
+        continue;
       }
-      const ubicacion = respuesta.headers.get('location');
-      if (!ubicacion) {
-        throw new SecureFetchError(400, 'Redireccion invalida');
-      }
-      const siguienteUrl = new URL(ubicacion, urlActual);
-      // Algunos servidores responden con un Location absoluto usando la IP de
-      // conexion. En ese caso se restaura el hostname original ya validado.
-      if (siguienteUrl.hostname === ip) {
-        siguienteUrl.hostname = urlActual.hostname;
-      }
-      if (!isHostAllowed(siguienteUrl.hostname.toLowerCase())) {
-        throw new SecureFetchError(403, 'La redireccion apunta a un dominio no permitido');
-      }
-      // Revalida dominio e IP en cada salto para evitar DNS rebinding encadenado.
-      await validarDestinoSeguro(siguienteUrl.href);
-      urlActual = siguienteUrl;
-      saltos += 1;
-      continue;
-    }
 
-    if (!respuesta.ok || !respuesta.body) {
-      throw new SecureFetchError(502, 'La fuente respondio con un error');
-    }
+      if (!respuesta.ok || !respuesta.body) {
+        throw new SecureFetchError(502, 'La fuente respondio con un error');
+      }
 
-    const contentType = (respuesta.headers.get('content-type') || '').toLowerCase();
-    const mime = contentType.split(';')[0].trim();
-    const mimePermitido = MIMES_PERMITIDOS.includes(mime) || mime.endsWith('/rss') || mime.endsWith('+xml');
-    if (!mimePermitido) {
-      throw new SecureFetchError(400, 'Tipo de contenido no permitido');
-    }
+      const contentType = (respuesta.headers.get('content-type') || '').toLowerCase();
+      const mime = contentType.split(';')[0].trim();
+      const mimePermitido = MIMES_PERMITIDOS.includes(mime) || mime.endsWith('/rss') || mime.endsWith('+xml');
+      if (!mimePermitido) {
+        throw new SecureFetchError(400, 'Tipo de contenido no permitido');
+      }
 
-    const buffer = await leerCuerpoLimitado(respuesta, maxBytes);
-    return {
-      statusCode: respuesta.status,
-      headers: Object.fromEntries(respuesta.headers.entries()),
-      finalUrl: urlActual.href,
-      body: decodificarBuffer(buffer, contentType),
-    };
+      const buffer = await leerCuerpoLimitado(respuesta, maxBytes);
+      return {
+        statusCode: respuesta.status,
+        headers: Object.fromEntries(respuesta.headers.entries()),
+        finalUrl: urlActual.href,
+        body: decodificarBuffer(buffer, contentType),
+      };
+    }
+  } finally {
+    clearTimeout(temporizador);
+    if (senalExterna) senalExterna.removeEventListener('abort', abortarPorSenalExterna);
   }
 };

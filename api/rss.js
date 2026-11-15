@@ -10,9 +10,9 @@ const parser = new XMLParser({
   removeNSPrefix: false,
 });
 
-// Tiempo de espera por feed: un medio lento o colgado no debe bloquear toda
-// la rama RSS ni acercarse al limite de la serverless function. 8s equilibra
-// la latencia fria con sitios cubanos notoriamente lentos (~5-7s).
+// Tiempo de espera por feed: presupuesto total que incluye redirecciones y
+// lectura del cuerpo. 8s equilibra la latencia fria con sitios cubanos
+// notoriamente lentos (~5-7s) sin acercarse al limite de la serverless function.
 const TIEMPO_ESPERA_FEED_MS = 8000;
 
 const asArray = (value) => {
@@ -97,7 +97,10 @@ export const fetchFeed = async (feedUrl, config = {}) => {
 
   let response;
   try {
-    response = await secureFetch(feedUrl, { tiempoEsperaMs: TIEMPO_ESPERA_FEED_MS });
+    response = await secureFetch(feedUrl, {
+      tiempoEsperaMs: TIEMPO_ESPERA_FEED_MS,
+      senalExterna: config?.senal,
+    });
   } catch (error) {
     if (error instanceof SecureFetchError && (error.statusCode === 400 || error.statusCode === 403)) {
       throw error;
