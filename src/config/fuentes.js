@@ -24,6 +24,14 @@ export const DOMINIOS_PREFERIDOS = [
   "actualidad.rt.com",
   "telesurtv.net",
   "hispantv.com",
+  "trabajadores.cu",
+  "bohemia.cu",
+  "radiohc.cu",
+  "oncubanews.com",
+  "adelante.cu",
+  "ahora.cu",
+  "periodico26.cu",
+  "sierramaestra.cu",
 ];
 
 // Dominios adicionales que sirven contenido de fuentes configuradas pero no son
@@ -56,6 +64,14 @@ export const NOMBRES_FUENTES = {
   'actualidad.rt.com': 'RT en Español',
   'telesurtv.net': 'teleSUR',
   'hispantv.com': 'HispanTV',
+  'trabajadores.cu': 'Trabajadores',
+  'bohemia.cu': 'Bohemia',
+  'radiohc.cu': 'Radio Habana Cuba',
+  'oncubanews.com': 'OnCuba',
+  'adelante.cu': 'Adelante',
+  'ahora.cu': 'Ahora',
+  'periodico26.cu': 'Periódico 26',
+  'sierramaestra.cu': 'Sierra Maestra',
 };
 
 export const DOMINIOS_NO_NEWDATA = [
@@ -72,6 +88,10 @@ export const DOMINIOS_NO_NEWDATA = [
   'tribuna.cu',
   'tvbrics.com',
   'hispantv.com',
+  'adelante.cu',
+  'ahora.cu',
+  'periodico26.cu',
+  'sierramaestra.cu',
 ];
 
 export const DOMINIOS_NEWDATA = DOMINIOS_PREFERIDOS.filter((dominio) => !DOMINIOS_NO_NEWDATA.includes(dominio));
