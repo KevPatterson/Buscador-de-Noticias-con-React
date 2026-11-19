@@ -77,6 +77,24 @@ const DOC_BLOCKLIST = [
   'pic.twitter.com/',
   '©',
   'copyright',
+  'información relacionada',
+  'informacion relacionada',
+  'comparte este artículo',
+  'comparte este articulo',
+  'compartir este artículo',
+  'compartir este articulo',
+  'ediciones prensa latina',
+  'facebook',
+  'twitter',
+  'youtube',
+  'rss',
+  'telegram',
+  'foto:',
+  'hora:',
+  'autor:',
+  'etiquetas:',
+  'redaccion central',
+  'redacción central',
 ];
 
 const DOCX_FONT = 'Arial';
@@ -451,12 +469,26 @@ function App() {
     let text = cleanDocText(decodeHtmlEntities(stripMarkup(value)));
 
     const cutMarkers = [
-      'Ultimas entradas',
-      'Últimas entradas',
+      'Información relacionada',
+      'INFORMACIÓN RELACIONADA',
+      'Informacion relacionada',
+      'información relacionada',
+      'informacion relacionada',
       'Historias Relacionadas',
+      'Noticias Relacionadas',
+      'noticias relacionadas',
+      'Últimas entradas',
+      'Ultimas entradas',
       'Latest stories',
       'Previous article',
       'Next article',
+      'Comparte este artículo',
+      'Comparte este articulo',
+      'Compartir este artículo',
+      'Compartir este articulo',
+      '🔗 Comparte este artículo',
+      'EDICIONES PRENSA LATINA',
+      'Ediciones Prensa Latina',
       'All Rights Reserved',
       'Todos los derechos reservados',
       'Do Not Sell My Data',
@@ -482,21 +514,36 @@ function App() {
     const seen = new Set();
     const keptParagraphs = [];
 
-    text.split(/\n{2,}/).forEach((rawParagraph) => {
+    // Si el texto viene como un unico bloque sin saltos de parrafo, se divide
+    // por oraciones para no entregar todo como un parrafo enorme.
+    const tieneSaltos = /\n{2,}/.test(text);
+    const bloques = tieneSaltos
+      ? text.split(/\n{2,}/)
+      : dividirOraciones(text);
+
+    bloques.forEach((rawParagraph) => {
       const paragraph = cleanDocText(rawParagraph);
       if (!paragraph) return;
 
+      // Descarta lineas de navegacion, redes sociales, fecha/hora y pie de pagina.
       if (/^fuente\s*:/i.test(paragraph)) return;
       if (/^(https?:\/\/|www\.)/i.test(paragraph)) return;
       if ((paragraph.match(/https?:\/\//gi) || []).length >= 2) return;
       if (/^\d{1,2}:\d{2}/.test(paragraph) && paragraph.length < 120) return;
       if (/^foto\s*:/i.test(paragraph)) return;
+      if (/^hora\s*:/i.test(paragraph)) return;
+      if (/^autor\s*:/i.test(paragraph)) return;
+      if (/^etiquetas\s*:/i.test(paragraph)) return;
       if (/^image\s*\d*\s*:/i.test(paragraph)) return;
       if (/^segundos$/i.test(paragraph)) return;
       if (/^[-—]\s.*\(@[^)]+\).*\d{4}$/i.test(paragraph)) return;
       if (/pic\.twitter\.com\//i.test(paragraph)) return;
       if (/\bthe post\b/i.test(paragraph) && /\bappeared first on\b/i.test(paragraph)) return;
       if (paragraph.includes('Œ')) return;
+      if (/^(facebook|twitter|youtube|rss|telegram)\s*$/i.test(paragraph)) return;
+      if (/redaccion central/i.test(paragraph)) return;
+      if (/comparte (este|este artículo|este articulo)/i.test(paragraph)) return;
+      if (/ediciones prensa latina/i.test(paragraph)) return;
 
       const lower = paragraph.toLowerCase();
       if (DOC_BLOCKLIST.some((entry) => lower.includes(entry))) return;
@@ -509,6 +556,15 @@ function App() {
     });
 
     return keptParagraphs.join('\n\n');
+  };
+
+  // Divide un texto bloque unico en parrafos por oraciones, para evitar
+  // entregar todo el articulo como un unico parrafo enorme.
+  const dividirOraciones = (texto = '') => {
+    return texto
+      .split(/(?<=[.!?])\s+(?=[A-ZÁÉÍÓÚÑ0-9"\¿¡])/)
+      .map((t) => t.trim())
+      .filter((t) => t.length > 0);
   };
 
   const isUsefulArticleText = (value = '') => {

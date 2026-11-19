@@ -37,6 +37,113 @@ const BOILERPLATE_START_MARKERS = [
   'Sign in',
 ];
 
+// Encabezados que marcan el inicio de bloques ajenos al articulo: noticias
+// relacionadas, pie de agencia, botones de compartir y navegacion final.
+const SECTION_STOP_MARKERS = [
+  'informacion relacionada',
+  'noticias relacionadas',
+  'articulos relacionados',
+  'historias relacionadas',
+  'contenido relacionado',
+  'ediciones prensa latina',
+  'comparte este articulo',
+  'compartir este articulo',
+  'comparte esta noticia',
+  'compartir esta noticia',
+  'tambien te puede interesar',
+  'tambien le puede interesar',
+  'te puede interesar',
+  'le puede interesar',
+  'esto te puede interesar',
+  'lee tambien',
+  'lea tambien',
+  'ver tambien',
+  'vea tambien',
+  'otras noticias',
+  'mas noticias',
+  'ultimas entradas',
+  'latest stories',
+  'previous article',
+  'next article',
+  'all rights reserved',
+  'todos los derechos reservados',
+  'siguenos en',
+  'siguenos',
+  'suscribete',
+  'newsletter',
+];
+
+// Decide si un parrafo completo es un encabezado de bloque ajeno. Se exige
+// que sea corto para no cortar una frase del propio articulo que mencione,
+// por ejemplo, "lee tambien" dentro de una oracion.
+const esEncabezadoDeSeccion = (parrafo = '') => {
+  const texto = parrafo.trim();
+  if (!texto || texto.length > 120) return false;
+
+  const clave = normalizeForCompare(texto);
+  if (!clave) return false;
+
+  return SECTION_STOP_MARKERS.some((marker) => {
+    const marca = normalizeForCompare(marker);
+    return clave === marca || clave.startsWith(`${marca} `);
+  });
+};
+
+// Corta el texto en el primer encabezado de seccion ajena. Se recorre por
+// parrafos para no eliminar contenido legitimo que mencione el marcador a
+// mitad de una oracion.
+const cutAtSectionMarker = (value = '') => {
+  const parrafos = value.split(/\n{2,}/);
+  for (let i = 1; i < parrafos.length; i += 1) {
+    if (esEncabezadoDeSeccion(parrafos[i])) {
+      return parrafos.slice(0, i).join('\n\n');
+    }
+  }
+  return value;
+};
+
+// Agrupa oraciones en parrafos cuando el medio entrega todo el cuerpo como un
+// unico bloque. Sin esto el boletin muestra la noticia en un solo parrafo.
+const agruparOracionesEnParrafos = (texto = '', objetivo = 350) => {
+  const limpio = normalizeText(texto);
+  if (!limpio) return '';
+
+  const oraciones = limpio
+    .split(/(?<=[.!?])\s+(?=[A-ZÁÉÍÓÚÑ0-9"¿¡])/)
+    .map((oracion) => oracion.trim())
+    .filter(Boolean);
+
+  if (oraciones.length < 4) return limpio;
+
+  const parrafos = [];
+  let grupo = [];
+  let longitud = 0;
+
+  oraciones.forEach((oracion) => {
+    grupo.push(oracion);
+    longitud += oracion.length;
+
+    if (longitud >= objetivo || grupo.length >= 4) {
+      parrafos.push(grupo.join(' '));
+      grupo = [];
+      longitud = 0;
+    }
+  });
+
+  if (grupo.length > 0) parrafos.push(grupo.join(' '));
+
+  return parrafos.join('\n\n');
+};
+
+// Aplica la division por oraciones solo a parrafos desproporcionados, para
+// conservar los cortes originales del medio cuando ya existen.
+const dividirParrafosLargos = (texto = '') =>
+  texto
+    .split(/\n{2,}/)
+    .map((parrafo) => (parrafo.length > 1500 ? agruparOracionesEnParrafos(parrafo) : parrafo.trim()))
+    .filter(Boolean)
+    .join('\n\n');
+
 const normalizeForCompare = (value = '') =>
   value
     .normalize('NFD')
@@ -329,6 +436,50 @@ const NOISE_SELECTORS = [
   '[class*="ads"]',
   '[class*="banner"]',
   '[class*="sponsor"]',
+  // Noticias relacionadas, recomendados y navegacion entre articulos.
+  '[class*="related"]',
+  '[class*="relacionad"]',
+  '[id*="related"]',
+  '[id*="relacionad"]',
+  '[class*="recommended"]',
+  '[class*="recomendad"]',
+  '[class*="more-news"]',
+  '[class*="more_news"]',
+  '[class*="read-more"]',
+  '[class*="readmore"]',
+  '[class*="te-puede-interesar"]',
+  '[class*="tambien-te-puede"]',
+  '.jp-relatedposts',
+  '.yarpp-related',
+  '.crp_related',
+  '.post-navigation',
+  '.pagination',
+  // Autor, etiquetas, compartir y suscripcion.
+  '.author-box',
+  '.authorbox',
+  '.author-bio',
+  '.byline',
+  '.post-tags',
+  '.tags',
+  '.tag-list',
+  '.etiquetas',
+  '.share-buttons',
+  '.social-share',
+  '.addtoany',
+  '.a2a_kit',
+  '.newsletter',
+  '.subscribe',
+  '.suscripcion',
+  '.suscripcion-box',
+  '.post-footer',
+  '.article-footer',
+  '.entry-footer',
+  // Barras laterales y widgets suelen contener notas de otros temas.
+  '.sidebar',
+  '#sidebar',
+  '[class*="sidebar"]',
+  '.widget',
+  '[class*="widget"]',
 ];
 
 const cleanDom = ($, targetUrl = '') => {
@@ -436,18 +587,39 @@ const getParagraphsFromNode = ($, node) => {
   const chunks = [];
   const vistos = new Set();
 
+  // Descarta lineas que son solo navegacion, redes o metadatos del medio.
+  const esRuido = (texto = '') => {
+    if (/^(facebook|twitter|x|youtube|instagram|telegram|whatsapp|rss|linkedin|tiktok)$/i.test(texto)) return true;
+    if (/^(comparte|compartir)\s+(este|esta)\b/i.test(texto)) return true;
+    if (/^(siguenos|síguenos|suscribete|suscríbete)\b/i.test(texto)) return true;
+    if (/^(informacion|información|noticias|articulos|artículos)\s+relacionad/i.test(texto)) return true;
+    if (/^ediciones\s+prensa\s+latina/i.test(texto)) return true;
+    if (/^(foto|hora|autor|autora|etiquetas|tags|fuente|categoria|categoría|seccion|sección)\s*:/i.test(texto)) return true;
+    if (/^redaccion central/i.test(texto)) return true;
+    if (/^tiempo de lectura/i.test(texto)) return true;
+    if (/^ultima actualizacion/i.test(texto)) return true;
+    return false;
+  };
+
   const agregar = (texto) => {
-    const limpio = normalizeText(texto);
-    if (limpio.length < 20) return;
-    // Descarta bloques que son solo una URL.
-    if (/^(https?:\/\/|www\.)\S+$/i.test(limpio)) return;
-    if (vistos.has(limpio)) return;
-    vistos.add(limpio);
-    chunks.push(limpio);
+    // Un <p> con <br> puede contener varios parrafos reales: se separan por
+    // linea para que el boletin no los entregue como un bloque unico.
+    String(texto || '').split(/\n+/).forEach((linea) => {
+      const limpio = normalizeText(linea);
+      if (limpio.length < 20) return;
+      // Descarta bloques que son solo una URL.
+      if (/^(https?:\/\/|www\.)\S+$/i.test(limpio)) return;
+      if (esRuido(limpio)) return;
+      if (vistos.has(limpio)) return;
+      vistos.add(limpio);
+      chunks.push(limpio);
+    });
   };
 
   node.find('p, blockquote').each((_, element) => {
-    agregar($(element).text());
+    const bloque = $(element).clone();
+    bloque.find('br').replaceWith('\n');
+    agregar(bloque.text());
   });
 
   // Algunos medios (p. ej. noticiaslatam.lat) publican cada parrafo dentro de
@@ -455,7 +627,9 @@ const getParagraphsFromNode = ($, node) => {
   node.find('div').each((_, element) => {
     const bloque = $(element);
     if (bloque.find('p, div, blockquote, li').length > 0) return;
-    agregar(bloque.text());
+    const copia = bloque.clone();
+    copia.find('br').replaceWith('\n');
+    agregar(copia.text());
   });
 
   return chunks;
@@ -513,8 +687,12 @@ const extractFullText = ($, targetUrl = '') => {
   }
 
   const mergedText = normalizeText(paragraphs.join('\n\n'));
-  if (mergedText) return dedupeParagraphs(mergedText);
-  return dedupeParagraphs(normalizeText(container.text()));
+  if (mergedText) {
+    const sinRelacionadas = cutAtSectionMarker(mergedText);
+    return dedupeParagraphs(dividirParrafosLargos(sinRelacionadas));
+  }
+  const fallback = dedupeParagraphs(normalizeText(container.text()));
+  return dedupeParagraphs(dividirParrafosLargos(cutAtSectionMarker(fallback)));
 };
 
 const emptyResponse = (res) => res.status(200).json({ 
