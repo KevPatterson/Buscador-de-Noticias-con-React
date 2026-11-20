@@ -7,6 +7,15 @@ const asSingleValue = (value) => (Array.isArray(value) ? value[0] : value);
 
 const normalizeText = (value = '') =>
   value
+    // Decodifica entidades HTML comunes (&quot;, &amp;, &apos;, &lt;, &gt;, &nbsp;)
+    .replace(/&quot;/gi, '"')
+    .replace(/&amp;/gi, '&')
+    .replace(/&apos;/gi, "'")
+    .replace(/&lt;/gi, '<')
+    .replace(/&gt;/gi, '>')
+    .replace(/&nbsp;/gi, ' ')
+    .replace(/&#39;/g, "'")
+    .replace(/&#x27;/g, "'")
     .replace(/\u00a0/g, ' ')
     .replace(/[ \t]+/g, ' ')
     .replace(/\n{3,}/g, '\n\n')
@@ -598,6 +607,19 @@ const getParagraphsFromNode = ($, node) => {
     if (/^redaccion central/i.test(texto)) return true;
     if (/^tiempo de lectura/i.test(texto)) return true;
     if (/^ultima actualizacion/i.test(texto)) return true;
+    // Basura de WordPress: "The post ... first appeared on ..." / "se publico primero en"
+    if (/\bthe post\b/i.test(texto) && /\bappeared first on\b/i.test(texto)) return true;
+    if (/se\s+publi(c|ç)o\s+primero\s+en/i.test(texto)) return true;
+    if (/^(the post|primera pagina|pagina principal)\b/i.test(texto)) return true;
+    // Fechas ISO crudas (2026-11-19T18:41+0000)
+    if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/.test(texto)) return true;
+    // Emails sueltos
+    if (/^\S+@\S+\.\S+$/.test(texto)) return true;
+    // CTAs y metadatos de agencias
+    if (/no\s+te\s+pierdas\s+las\s+noticias/i.test(texto)) return true;
+    if (/tambien\s+tenemos\s+una\s+cuenta\s+en/i.test(texto)) return true;
+    if (/ya\s+que\s+la\s+aplicacion\s+est[aá]\s+bloqueada/i.test(texto)) return true;
+    if (/mia\s+„?rossiya segodnya/i.test(texto)) return true;
     return false;
   };
 

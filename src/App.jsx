@@ -539,6 +539,16 @@ function App() {
       if (/^[-—]\s.*\(@[^)]+\).*\d{4}$/i.test(paragraph)) return;
       if (/pic\.twitter\.com\//i.test(paragraph)) return;
       if (/\bthe post\b/i.test(paragraph) && /\bappeared first on\b/i.test(paragraph)) return;
+      if (/se\s+publi(c|ç)o\s+primero\s+en/i.test(paragraph)) return;
+      // Fechas ISO crudas (2026-11-19T18:41+0000)
+      if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/.test(paragraph)) return;
+      // Emails sueltos
+      if (/^\S+@\S+\.\S+$/.test(paragraph)) return;
+      // CTAs y metadatos de agencias
+      if (/no\s+te\s+pierdas\s+las\s+noticias/i.test(paragraph)) return;
+      if (/tambien\s+tenemos\s+una\s+cuenta\s+en/i.test(paragraph)) return;
+      if (/ya\s+que\s+la\s+aplicacion\s+est[aá]\s+bloqueada/i.test(paragraph)) return;
+      if (/mia\s+„?rossiya segodnya/i.test(paragraph)) return;
       if (paragraph.includes('Œ')) return;
       if (/^(facebook|twitter|youtube|rss|telegram)\s*$/i.test(paragraph)) return;
       if (/redaccion central/i.test(paragraph)) return;
@@ -562,7 +572,7 @@ function App() {
   // entregar todo el articulo como un unico parrafo enorme.
   const dividirOraciones = (texto = '') => {
     return texto
-      .split(/(?<=[.!?])\s+(?=[A-ZÁÉÍÓÚÑ0-9"\¿¡])/)
+      .split(/(?<=[.!?])\s+(?=[A-ZÁÉÍÓÚÑ0-9"¿¡])/)
       .map((t) => t.trim())
       .filter((t) => t.length > 0);
   };
